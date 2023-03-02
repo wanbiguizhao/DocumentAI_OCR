@@ -1,1 +1,6 @@
 scikit-learn>=1.2
+pdfminer.six
+pdfminer.six[image]
+numpy>=1.24
+matplotlib
+opencv-python>=4.7.0.72
