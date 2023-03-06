@@ -51,6 +51,10 @@ def batch_rename_img(base_image_dir):
             )
 from PIL import Image 
 def batch_convert_bmp_png(base_image_dir):
+    """
+    paddle 不能识别bmp格式的图片
+    还需要转换为png格式
+    """
     for image_dir_name in tqdm(os.listdir(base_image_dir)):
         image_dir_path=os.path.join(base_image_dir,image_dir_name)
         if not os.path.isdir(image_dir_path):
