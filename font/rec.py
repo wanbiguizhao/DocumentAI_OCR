@@ -234,7 +234,7 @@ def buildSentenceImg(random_sentence):
             beg_w+=w 
             label+=wordobj.word
         png_name="{}".format(index).rjust(6,"0")+".png"
-        cv.imwrite(os.path.join(BASE_FASKE_IMG_DIR,"image" ,png_name),sentence_img)
+        cv.imwrite(os.path.join(BASE_FASKE_IMG_DIR,"images" ,png_name),sentence_img)
         labels_data.append("image\{}\t{}\n".format(png_name,label))
     with open(
         os.path.join(BASE_FASKE_IMG_DIR,"labels.text"),"w"
@@ -254,7 +254,7 @@ def pipline02():
     """
     根据word对应的图片，自动装生成标注数据，用于paddle的训练
     """
-    random_sentences=getRandomSentence(length=100,wordCount=10) 
+    random_sentences=getRandomSentence(length=50000,wordCount=10) 
     buildSentenceImg(random_sentences)
 
 

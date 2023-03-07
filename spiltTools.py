@@ -29,7 +29,21 @@ def merge_labels_info(base_dir,save_dir=None):
         os.makedirs(save_dir,exist_ok=True)
         with open( os.path.join(save_dir,'merge_labels.txt'),'w') as mlablesf:
             mlablesf.writelines(rec_labels_info)
-    
+def countFreq(file_path=os.path.join(PROJECT_DIR,"tmp",'val.txt')):
+    from collections import Counter
+    # 临时使用统计val中，每个汉字的使用总数。
+    val_word_counter=Counter()
+    with open(file_path,"r") as labelf:
+        for line in labelf.readlines():
+            xd=line.split('\t')
+            if len(xd)!=3:
+                continue
+            val_word_counter.update(xd[1])
+    for ele in sorted([ (f,w) for (w,f) in val_word_counter.items()],reverse=True):
+        print(ele[1],'\t',ele[0])
+
+
+
 def make_train_val(labels_dir,labels_name="merge_labels.txt",train_per=0.7):
     #在 labels_dir目录下生成train 和 val 数据
     assert os.path.exists(labels_dir)
@@ -48,4 +62,5 @@ def make_train_val(labels_dir,labels_name="merge_labels.txt",train_per=0.7):
 
 if __name__=="__main__":
     #merge_labels_info(DATA_DIR,save_dir=os.path.join(PROJECT_DIR,'tmp'))
-    make_train_val(os.path.join(PROJECT_DIR,'tmp'))
+    #make_train_val(os.path.join(PROJECT_DIR,'tmp','output'),labels_name="labels.text")
+    countFreq()
