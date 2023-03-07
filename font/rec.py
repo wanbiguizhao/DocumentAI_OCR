@@ -4,7 +4,7 @@
 import os
 import tempfile 
 PROJECT_DIR= os.path.dirname(
-    os.path.dirname(__file__)
+    os.path.dirname(os.path.realpath( __file__))
 )
 import cv2 as  cv
 from tqdm import tqdm
