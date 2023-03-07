@@ -181,7 +181,7 @@ class WordImgSet:
             img_path=os.path.join(word_dir,img_name)
 
             img=cv.imread(img_path)
-            newimg=cv.resize(img,(45,47))
+            newimg=cv.resize(img,(45,47)) # 不再对原来的代码进行resize
             #统一对字符图片的大小做归一化。
             #print(newimg.shape,img.shape)
             self.image_lists.append(newimg)
@@ -216,20 +216,30 @@ def getRandomSentence(length=100000,wordCount=10):
     return random_sentence
 
 def buildSentenceImg(random_sentence):
-    
+    """
+    根据校验的汉字，生成ocr的训练数据
+    """
+    BASE_FASKE_IMG_DIR=os.path.join(PROJECT_DIR,"tmp","output")
+    labels_data=[]
     for index,onesentence in enumerate(random_sentence):
         first_word_img=onesentence[0].get_one_img()
         h,w,_=first_word_img.shape
         sentence_img=np.zeros((h,w*len(onesentence),3),dtype=first_word_img.dtype)
         sentence_img[:,:,:]=255
         beg_w=0
+        label=""
         for wordobj in  onesentence:
             wordimg=wordobj.get_one_img()
             sentence_img[:,beg_w:beg_w+w,:]=wordimg.copy()
             beg_w+=w 
-        png_name="{}".format(index).rjust(6,"0")
-        cv.imwrite("/tmp/png/{}.png".format(png_name),sentence_img)
-
+            label+=wordobj.word
+        png_name="{}".format(index).rjust(6,"0")+".png"
+        cv.imwrite(os.path.join(BASE_FASKE_IMG_DIR,"image" ,png_name),sentence_img)
+        labels_data.append("image\{}\t{}\n".format(png_name,label))
+    with open(
+        os.path.join(BASE_FASKE_IMG_DIR,"labels.text"),"w"
+    ) as lf:
+        lf.writelines(labels_data)
 
 
 
