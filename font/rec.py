@@ -227,10 +227,23 @@ class WordImgSet:
             img_path=os.path.join(word_dir,img_name)
 
             img=cv.imread(img_path)
-            newimg=cv.resize(img,(45,47)) # 不再对原来的代码进行resize
+            h,w,_=img.shape
+            new_img=np.zeros((45,47,3),dtype=img.dtype)
+            new_img[:,:,:]=255
+            new_img[:,:min(47,w),:]=cv.resize(img,(min(47,w),45))[:,:,:]
+            # if h>45:
+            #     newimg=cv.resize(img,(45,min(47,w)))
+            # if h<=45 and w<=47:
+            #     new_img[:h,:w,:]=img.copy()
+
+
+
+            # h,w=
+            # newimg=cv.resize(img,(45,min(47,w))) # 不再对原来的代码进行resize
+            
             #统一对字符图片的大小做归一化。
             #print(newimg.shape,img.shape)
-            self.image_lists.append(newimg)
+            self.image_lists.append(new_img)
             #cv.imshow("new img",newimg)
             #cv.waitKey(0)
             #cv2.destroyAllWindows()
@@ -245,7 +258,18 @@ class WordImgSet:
 class WordImgSetFomat01(WordImgSet):
     """
     word_dir name formate is 123123@wordword
+    保留原始的图片大小
     """
+    def __init__(self,word_dir) -> None:
+        for img_name in  os.listdir(word_dir):
+            self.word=self.get_word(word_dir)
+            self.image_lists=[]
+            self.index=-1
+            #print(img_name)
+            img_path=os.path.join(word_dir,img_name)
+
+            img=cv.imread(img_path)
+            self.image_lists.append(img)
 
     def get_word(self, word_dir_name):
 
@@ -292,19 +316,24 @@ class BuildSentencCorups:
         IMGS_DIR=os.path.join(BASE_FASKE_IMG_DIR,"images")
         labels_data=[]
         for index,onesentence in enumerate(random_sentence):
+            guess_max_h=-1
+            guess_w=100
             first_word_img=onesentence[0].get_one_img()
             h,w,_=first_word_img.shape
-            sentence_img=np.zeros((h,w*len(onesentence),3),dtype=first_word_img.dtype)
+            sentence_img=np.zeros((200,guess_w*len(onesentence),3),dtype=first_word_img.dtype)
             sentence_img[:,:,:]=255
             beg_w=0
             label=""
             for wordobj in  onesentence:
                 wordimg=wordobj.get_one_img()
-                sentence_img[:,beg_w:beg_w+w,:]=wordimg.copy()
+                h,w,_=wordimg.shape
+                guess_max_h=max(guess_max_h,h)
+                sentence_img[:h,beg_w:beg_w+w,:]=wordimg.copy()
                 beg_w+=w 
                 label+=wordobj.word
             png_name="{}".format(index).rjust(6,"0")+".png"
-            cv.imwrite( os.path.join(IMGS_DIR ,png_name),sentence_img)
+            
+            cv.imwrite( os.path.join(IMGS_DIR ,png_name),sentence_img[:guess_max_h,:beg_w,:])
             labels_data.append("images\{}\t{}\n".format(png_name,label))
         with open(
             os.path.join(BASE_FASKE_IMG_DIR,"labels.text"),"w"
