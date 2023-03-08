@@ -12,6 +12,7 @@ from paddleocr import PaddleOCR
 import glob
 from PIL import Image
 import numpy as np
+import shutil
 # ocr = PaddleOCR(
 #     det=False,
 #     rec=True,
@@ -94,14 +95,17 @@ def countPicWidth():
     """
     width_counter=Counter()
     higth_counter=Counter()
+    ratio_counter=Counter()
     # 两个字的宽度大概在 88,87,89 大概是3w个图片
     for word_png_path in tqdm(glob.glob(os.path.join(PROJECT_DIR,'tmp','*word*','**','*.png'),recursive=True )):
         current_img=cv.imread(word_png_path)
         hc,wc,_=current_img.shape
         width_counter.update([wc])
         higth_counter.update([hc])
+        ratio_counter.update([round(wc/hc,1)])
     print(width_counter.most_common(100))
     print(higth_counter.most_common(100))
+    print(ratio_counter.most_common(100))
 
 def countWordFreq():
     """
@@ -126,6 +130,48 @@ def countWordFreq():
                 swf.write(
                     "{}-{}\n".format(w,f)
                 )
+def get_topn_word():
+    """
+    从sort_ocr_rec.text中拿到每个汉字概率最高的10个图片
+    """
+    BASE_WORD_IMAGE_DST=os.path.join(PROJECT_DIR,'tmp',"word2imgtop10")
+    if not os.path.exists(BASE_WORD_IMAGE_DST):
+        os.makedirs(BASE_WORD_IMAGE_DST)
+    from collections import defaultdict
+    word_index_range_dict=defaultdict(list)
+    with open(os.path.join(PROJECT_DIR, 'ocr_rec.text'),'r') as sst:
+        alldata=sst.readlines()
+        alldata=sorted(alldata)
+        wordCounter=Counter()
+        current_word="init"
+        word_index_range_dict[current_word].append(-1)
+        for index, dataline in tqdm(enumerate(alldata)):
+            word_info_list=dataline.split("\t")
+            if len(word_info_list)==3:
+                if current_word!=word_info_list[0]:
+                    word_index_range_dict[current_word].append(index-1)
+                    current_word=word_info_list[0]
+                    word_index_range_dict[current_word].append(index)
+                wordCounter.update([word_info_list[0]])
+        word_index_range_dict[current_word].append(index)
+        del wordCounter["init"]
+        del word_index_range_dict["init"]
+        index=0
+        for count,word in sorted([ (count,word) for word,count in wordCounter.items()],reverse=True):
+            begindex,endindex=word_index_range_dict[word]
+            WORD_DST_DIR=os.path.join(BASE_WORD_IMAGE_DST,str(index).rjust(5,'0')+"@"+word)
+            if not os.path.exists(WORD_DST_DIR):
+                os.makedirs(WORD_DST_DIR)
+            for dataline in alldata[max(begindex,endindex+1-10):endindex+1]:
+                word_info_list=dataline.replace("\n","").split("\t")
+                shutil.copy(word_info_list[2],WORD_DST_DIR)
+            index+=1
+                
+
+
+
+
+        
 
 def display_word():
     """
@@ -174,7 +220,7 @@ class WordImgSet:
     """
     def __init__(self,word_dir) -> None:
         for img_name in  os.listdir(word_dir):
-            self.word=word_dir[-1]
+            self.word=self.get_word(word_dir)
             self.image_lists=[]
             self.index=-1
             #print(img_name)
@@ -193,8 +239,87 @@ class WordImgSet:
         index=random.randint(0,len(self.image_lists)-1)
         #self.index=self.index%len(self.image_lists)
         return self.image_lists[index]
+    def get_word(self,word_dir_name):
+        return word_dir_name[-1]
 
-def getRandomSentence(length=100000,wordCount=10):
+class WordImgSetFomat01(WordImgSet):
+    """
+    word_dir name formate is 123123@wordword
+    """
+
+    def get_word(self, word_dir_name):
+
+        return word_dir_name.split("@")[-1]
+
+class BuildSentencCorups:
+
+    def __init__(self,wordCount=10,sentence_num=10000,random_sentence_len=True,WordImgSetClass=WordImgSet
+                            ,BASE_WORD_IMG_DIR=os.path.join(PROJECT_DIR,"tmp","validWordImgs")
+                            ,BASE_FASKE_IMG_DIR=os.path.join(PROJECT_DIR,"tmp","output")
+                            ) -> None:
+        self.wordCount=wordCount
+        self.sentence_num=sentence_num
+        self.random_sentence_len=random_sentence_len
+        self.WordImgSetClass=WordImgSet
+        self.BASE_WORD_IMG_DIR=BASE_WORD_IMG_DIR
+        self.BASE_FASKE_IMG_DIR=BASE_FASKE_IMG_DIR
+
+    def getRandomSentence(self):
+        length=self.sentence_num
+        wordCount=self.wordCount
+        allHanWords=[]
+        BASE_WORD_IMG_DIR=self.BASE_WORD_IMG_DIR
+        for word_dir_name in os.listdir(BASE_WORD_IMG_DIR):
+            word=self.WordImgSetClass(os.path.join(BASE_WORD_IMG_DIR,word_dir_name))
+            allHanWords.append(word)
+        #print([w.word for w in allHanWords])
+        random_sentence=[]
+        for th in range(length):
+            sentence_data=[]
+            for _ in range(random.randrange(5,wordCount)):
+                sentence_data.append(
+                    allHanWords[ random.randrange(len(allHanWords)) ]
+                )
+            print(th, "".join( [ w.word for w in sentence_data]))
+            random_sentence.append(sentence_data)
+        return random_sentence
+    def buildSentenceImg(self,random_sentence):
+        """
+        根据校验的汉字，生成ocr的训练数据
+        """
+
+        BASE_FASKE_IMG_DIR=self.BASE_FASKE_IMG_DIR
+        IMGS_DIR=os.path.join(BASE_FASKE_IMG_DIR,"images")
+        labels_data=[]
+        for index,onesentence in enumerate(random_sentence):
+            first_word_img=onesentence[0].get_one_img()
+            h,w,_=first_word_img.shape
+            sentence_img=np.zeros((h,w*len(onesentence),3),dtype=first_word_img.dtype)
+            sentence_img[:,:,:]=255
+            beg_w=0
+            label=""
+            for wordobj in  onesentence:
+                wordimg=wordobj.get_one_img()
+                sentence_img[:,beg_w:beg_w+w,:]=wordimg.copy()
+                beg_w+=w 
+                label+=wordobj.word
+            png_name="{}".format(index).rjust(6,"0")+".png"
+            cv.imwrite( os.path.join(IMGS_DIR ,png_name),sentence_img)
+            labels_data.append("images\{}\t{}\n".format(png_name,label))
+        with open(
+            os.path.join(BASE_FASKE_IMG_DIR,"labels.text"),"w"
+        ) as lf:
+            lf.writelines(labels_data)
+    
+    def build(self):
+        random_sentence=self.getRandomSentence()
+        self.buildSentenceImg(
+            random_sentence
+        )
+
+
+
+def getRandomSentence(length=100000,wordCount=12):
     """
     随机生成若干个句子
     """
@@ -207,14 +332,15 @@ def getRandomSentence(length=100000,wordCount=10):
     random_sentence=[]
     for th in range(length):
         sentence_data=[]
-        for _ in range(wordCount):
+        for _ in range(random.randrange(5,wordCount)):
             sentence_data.append(
                 allHanWords[ random.randrange(len(allHanWords)) ]
             )
         print(th, "".join( [ w.word for w in sentence_data]))
         random_sentence.append(sentence_data)
     return random_sentence
-
+    
+ 
 def buildSentenceImg(random_sentence):
     """
     根据校验的汉字，生成ocr的训练数据
@@ -241,14 +367,6 @@ def buildSentenceImg(random_sentence):
     ) as lf:
         lf.writelines(labels_data)
 
-
-
-
-
-
-
-
-        
         
 def pipline02():
     """
@@ -258,6 +376,35 @@ def pipline02():
     buildSentenceImg(random_sentences)
 
 
+
+def pipline03():
+    """
+    处理格式为
+    ├── 01974@匈
+    │   └── 380349.png
+    ├── 01975@匆
+    │   └── 092312.png
+    ├── 01976@勾
+    │   └── 072758.png
+    的文件
+    """
+    def check_dir(dir_path):
+        if not os.path.exists(dir_path):
+            os.makedirs(dir_path,exist_ok=True)
+        
+
+    BASE_WORD_IMG_DIR=os.path.join(PROJECT_DIR,"tmp","word2imgtop10")
+    BASE_FASKE_IMG_DIR=os.path.join(PROJECT_DIR,"tmp","output")
+    FAKE_IMGS_DIR=os.path.join(BASE_FASKE_IMG_DIR,"images")
+    check_dir(BASE_FASKE_IMG_DIR)
+    check_dir(BASE_WORD_IMG_DIR)
+    check_dir(FAKE_IMGS_DIR)
+    
+    build=BuildSentencCorups(wordCount=12,sentence_num=500,WordImgSetClass=WordImgSetFomat01,
+            BASE_WORD_IMG_DIR=BASE_WORD_IMG_DIR,
+            BASE_FASKE_IMG_DIR=BASE_FASKE_IMG_DIR
+            )
+    build.build()
 
 
                 
@@ -277,4 +424,5 @@ if __name__=="__main__":
     #countWordFreq()
     #display_word()
     #WordImgSet("/home/liukun/ocr/DocumentAI_OCR/tmp/validWordImgs/安")
-    pipline02()
+    #pipline02()
+    pipline03()

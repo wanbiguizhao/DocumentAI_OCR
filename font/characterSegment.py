@@ -1,7 +1,7 @@
 
 import os 
 PROJECT_DIR= os.path.dirname(
-    os.path.dirname(__file__)
+    os.path.dirname(os.path.realpath( __file__))
 )
 import sys 
 sys.path.append(PROJECT_DIR)
