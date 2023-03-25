@@ -274,7 +274,26 @@ class WordImgSetFomat01(WordImgSet):
     def get_word(self, word_dir_name):
 
         return word_dir_name.split("@")[-1]
+from typing import Tuple
+class WordImgSetFomat02(WordImgSetFomat01):
+    """
+    对图片进行重新resize
+    """
 
+    def resize(self,new_shape: Tuple[int, int],padding_color: Tuple[int] = (255, 255, 255)):
+        new_image_lists=[]
+        for image in self.image_lists:
+            original_shape = (image.shape[1], image.shape[0])
+            ratio = float(max(new_shape))/max(original_shape)
+            new_size = tuple([int(x*ratio) for x in original_shape])
+            delta_w = new_shape[0] - new_size[0]
+            delta_h = new_shape[1] - new_size[1]
+            top, bottom = delta_h//2, delta_h-(delta_h//2)
+            left, right = delta_w//2, delta_w-(delta_w//2)
+            new_image = cv.copyMakeBorder(image, top, bottom, left, right, cv.BORDER_CONSTANT, value=padding_color)
+            new_image_lists.append(new_image)
+        return new_image_lists
+    
 class BuildSentencCorups:
 
     def __init__(self,wordCount=10,sentence_num=10000,random_sentence_len=True,WordImgSetClass=WordImgSet
@@ -404,7 +423,49 @@ def pipline02():
     random_sentences=getRandomSentence(length=50000,wordCount=10) 
     buildSentenceImg(random_sentences)
 
+def pipline04():
+    """
+    把所有的图片等比例缩放到指定分辨率，并且填充白颜色
+    找到图片，缩放图片，复制到另一个位置
+    """
+    def check_dir(dir_path):
+        if not os.path.exists(dir_path):
+            os.makedirs(dir_path,exist_ok=True)
+    
+    def resize(image,new_shape: Tuple[int, int],padding_color: Tuple[int] = (255, 255, 255)):
 
+        original_shape = (image.shape[1], image.shape[0])
+        ratio = float(max(new_shape))/max(original_shape)
+        new_size = tuple([int(x*ratio) for x in original_shape])
+        delta_w = new_shape[0] - new_size[0]
+        delta_h = new_shape[1] - new_size[1]
+        top, bottom = delta_h//2, delta_h-(delta_h//2)
+        left, right = delta_w//2, delta_w-(delta_w//2)
+        new_image = cv.copyMakeBorder(image, top, bottom, left, right, cv.BORDER_CONSTANT, value=padding_color)
+        
+        return cv.resize(new_image,new_shape)
+
+
+    BASE_WORD_IMG_DIR=os.path.join(PROJECT_DIR,"tmp","word2imgtop10")
+    BASE_FASKE_IMG_DIR=os.path.join(PROJECT_DIR,"tmp","word2imgtop10_64")
+    FAKE_IMGS_DIR=os.path.join(BASE_FASKE_IMG_DIR,"images")
+    check_dir(BASE_FASKE_IMG_DIR)
+    check_dir(BASE_WORD_IMG_DIR)
+    check_dir(FAKE_IMGS_DIR)
+
+    for word_dir_name in tqdm(os.listdir(BASE_WORD_IMG_DIR)):
+        new_word_dir_path=os.path.join(BASE_FASKE_IMG_DIR,word_dir_name)
+        word_dir_path=os.path.join(BASE_WORD_IMG_DIR,word_dir_name)
+        check_dir(new_word_dir_path)
+        for image_file in os.listdir(word_dir_path):
+            image_file_path=os.path.join(word_dir_path,image_file)
+            image=cv.imread(image_file_path)
+            new_image=resize(image,(96,96))
+            cv.imwrite( 
+                 os.path.join(new_word_dir_path,image_file)
+                 ,new_image)
+
+     
 
 def pipline03():
     """
@@ -454,4 +515,4 @@ if __name__=="__main__":
     #display_word()
     #WordImgSet("/home/liukun/ocr/DocumentAI_OCR/tmp/validWordImgs/安")
     #pipline02()
-    pipline03()
+    pipline04()
