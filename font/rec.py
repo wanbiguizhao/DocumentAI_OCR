@@ -460,7 +460,7 @@ def pipline04():
         for image_file in os.listdir(word_dir_path):
             image_file_path=os.path.join(word_dir_path,image_file)
             image=cv.imread(image_file_path)
-            new_image=resize(image,(96,96))
+            new_image=resize(image,(64,64))
             cv.imwrite( 
                  os.path.join(new_word_dir_path,image_file)
                  ,new_image)
