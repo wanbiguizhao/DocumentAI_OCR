@@ -64,3 +64,4 @@ if __name__=="__main__":
     #merge_labels_info(DATA_DIR,save_dir=os.path.join(PROJECT_DIR,'tmp'))
     #make_train_val(os.path.join(PROJECT_DIR,'tmp','output'),labels_name="labels.text")
     countFreq()
+    os.path.isdir()
