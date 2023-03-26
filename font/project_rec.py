@@ -8,6 +8,8 @@ from matplotlib import pyplot as plt
 import numpy as np  
 import os 
 import glob
+
+from tqdm import tqdm
 PROJECT_DIR= os.path.dirname(
     os.path.dirname(os.path.realpath( __file__))
 )
@@ -51,7 +53,7 @@ def slide_window_beg_eng(h_w):
         x_end.append(len(h_w)-1)
     return x_start, x_end
 
-def resize(image,new_shape: Tuple[int, int],padding_color: Tuple[int] = (255, 255, 255)):
+def resize(image,new_shape: Tuple[int, int],padding_color: Tuple[int] = (255, )):
     # 对图像进行缩放，多余的部分填充为白色。
     original_shape = (image.shape[1], image.shape[0])
     ratio = float(max(new_shape))/max(original_shape)
@@ -83,17 +85,111 @@ def vProject(image_bin):
 
 def seg_sentences_image():
     BASE_IMAGE_DIR="tmp/ocrSentences"
-    for image_path in glob.glob(os.path.join(PROJECT_DIR,BASE_IMAGE_DIR,"*","*.png"),recursive=True)[:20]:
+    #DST_IMAGE_DIR="tmp/ocrSentences_resize"
+    width_list=[]
+    for image_path in tqdm(glob.glob(os.path.join(PROJECT_DIR,BASE_IMAGE_DIR,"*","*.png"),recursive=True)):
         image=cv.imread(image_path,cv.IMREAD_GRAYSCALE)
+        # 目录相关操作
         (image_dir_path,image_name)=os.path.split(image_path)
         (image_pure_name,extension)=os.path.splitext(image_name)
+        DST_IMAGE_DIR=image_dir_path.replace("ocrSentences","ocrSentences_resize")# 没有办法，硬编码一下吧
+
+
+        os.makedirs(DST_IMAGE_DIR,exist_ok=True)
         blur = cv.GaussianBlur(image,(5,5),0)
         ret3,th_image = cv.threshold(blur,0,255,cv.THRESH_BINARY+cv.THRESH_OTSU)
-        print(image_dir_path,image_pure_name,extension)
+        #print(image_dir_path,image_pure_name,extension)
         w_w=vProject(th_image)
         w_start,w_end=slide_window_beg_eng(w_w)
-        print(w_start,w_end)
+        assert len(w_start)==len(w_end)
+        width_list=list(map(lambda x, y: x - y, w_end, w_start))
+        width_mean=np.mean(width_list)
+        width_var=np.std(width_list)
+        #print(width_var,width_mean)
+        # 计算一下均值和方差，如果一个字符的宽度，小于
+        i=0
+        word_position_list=[]
+        while i < len(w_start):
+            word_width=w_end[i]- w_start[i]
+            if word_width==0:
+                i=i+1
+                continue
+            # try:
+            #     assert word_width>0
+            # except Exception() as e:
+            #     i=i+1
+            #     continue
 
+            if word_width<width_mean:
+                if i+1<len(w_start) and (word_width+w_end[i+1]-w_start[i+1])<(2*width_var+width_mean):
+                    word_position_list.append([w_start[i],w_end[i+1]])
+                    # 合并单词，跳跃到下一个。
+                    i=i+1
+            elif word_width>(2*width_var+width_mean):
+                # 应该是存在粘连问题
+                word_position_list.append([w_start[i],w_start[i]+word_width//2])
+                word_position_list.append([w_start[i]+word_width//2,w_end[i]])
+            else:
+                word_position_list.append([w_start[i],w_end[i]])
+            i=i+1
+        format_64_image_list=[]# 分辨率是64的像素
+        for word_position in word_position_list:
+            start,end=word_position
+            word_image=th_image[:,start:end]
+            image_64=resize(word_image,[64,64])
+            format_64_image_list.append(image_64)
+        merge_image=np.concatenate(format_64_image_list,axis=1)# 水平方向合并
+        plt.imsave(os.path.join(DST_IMAGE_DIR,image_pure_name+extension), merge_image,cmap=plt.gray() )
+        # plt.imshow(merge_image)
+        # plt.show()
+        # print(word_position_list)
+from pathos.multiprocessing import ProcessingPool as Pool
+def seg_row_image(num_cpu=1):
+    # 把一篇文章切割到行
+    BASE_IMAGE_DIR="tmp/images"
+    DST_IMAGE_DIR="tmp/project_ocrSentences"
+    def proc_image(image_path):
+        # 切割出来的行，存储起来
+        image=cv.imread(image_path,cv.IMREAD_GRAYSCALE)
+        # 目录相关操作
+        (image_dir_path,image_name)=os.path.split(image_path)
+        (image_pure_name,extension)=os.path.splitext(image_name)
+
+        DST_IMAGE_DIR=image_dir_path.replace("images","project_ocrSentences")# 没有办法，硬编码一下吧
+        os.makedirs(DST_IMAGE_DIR,exist_ok=True)
+        blur = cv.GaussianBlur(image,(5,5),0)
+        ret3,th_image = cv.threshold(blur,0,255,cv.THRESH_BINARY+cv.THRESH_OTSU)
+        #print(image_dir_path,image_pure_name,extension)
+        h_h=hproject(th_image)
+        h_start,h_end=slide_window_beg_eng(h_h)
+        assert len(h_start)==len(h_end)
+        height_list=list(map(lambda x, y: x - y, h_end,h_start ))
+        height_mean=np.mean(height_list)
+        #height_std=np.std(height_list)
+        i=0
+        while i < len(h_start):
+            height_row=h_end[i]- h_start[i]
+            cropImg = image[max(0,h_start[i]-1): min(image.shape[0],h_end[i]+1), :]
+            i+=1
+            if height_row<height_mean :
+                continue
+            cv.imwrite(
+               os.path.join( DST_IMAGE_DIR,image_pure_name+'_'+str(i).rjust(3,"0")+extension )
+                ,cropImg)  
+
+
+    
+    if  num_cpu==1:
+        for image_path in tqdm(glob.glob(os.path.join(PROJECT_DIR,BASE_IMAGE_DIR,"*","*.png"),recursive=True)[:100]):
+            proc_image(image_path)
+    else:
+        pool=Pool(processes=num_cpu)
+        pool.map(proc_image, 
+                glob.glob(os.path.join(PROJECT_DIR,BASE_IMAGE_DIR,"*","*.png"),recursive=True) )
+        pool.join()
+        pool.close()
+            
+    
 def cut_word(image,image_name):
     #把一张图切割成若干个包含汉字的图片
     print(image_name)
@@ -204,4 +300,5 @@ def main():
         #         index+=1
 
 if __name__=="__main__":
-    seg_sentences_image()
+    #seg_sentences_image()
+    seg_row_image(num_cpu=6)
