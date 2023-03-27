@@ -8,7 +8,7 @@ from matplotlib import pyplot as plt
 import numpy as np  
 import os 
 import glob
-
+from pathos.multiprocessing import ProcessingPool as Pool
 from tqdm import tqdm
 PROJECT_DIR= os.path.dirname(
     os.path.dirname(os.path.realpath( __file__))
@@ -63,7 +63,6 @@ def resize(image,new_shape: Tuple[int, int],padding_color: Tuple[int] = (255, ))
     top, bottom = delta_h//2, delta_h-(delta_h//2)
     left, right = delta_w//2, delta_w-(delta_w//2)
     new_image = cv.copyMakeBorder(image, top, bottom, left, right, cv.BORDER_CONSTANT, value=padding_color)
-    
     return cv.resize(new_image,new_shape)
 def vProject(image_bin):
     h, w = image_bin.shape
@@ -87,7 +86,7 @@ def seg_sentences_image():
     BASE_IMAGE_DIR="tmp/ocrSentences"
     #DST_IMAGE_DIR="tmp/ocrSentences_resize"
     width_list=[]
-    for image_path in tqdm(glob.glob(os.path.join(PROJECT_DIR,BASE_IMAGE_DIR,"*","*.png"),recursive=True)):
+    for image_path in tqdm(glob.glob(os.path.join(PROJECT_DIR,BASE_IMAGE_DIR,"*","*.png"),recursive=True)[:2000]):
         image=cv.imread(image_path,cv.IMREAD_GRAYSCALE)
         # 目录相关操作
         (image_dir_path,image_name)=os.path.split(image_path)
@@ -114,12 +113,6 @@ def seg_sentences_image():
             if word_width==0:
                 i=i+1
                 continue
-            # try:
-            #     assert word_width>0
-            # except Exception() as e:
-            #     i=i+1
-            #     continue
-
             if word_width<width_mean:
                 if i+1<len(w_start) and (word_width+w_end[i+1]-w_start[i+1])<(2*width_var+width_mean):
                     word_position_list.append([w_start[i],w_end[i+1]])
@@ -135,7 +128,7 @@ def seg_sentences_image():
         format_64_image_list=[]# 分辨率是64的像素
         for word_position in word_position_list:
             start,end=word_position
-            word_image=th_image[:,start:end]
+            word_image=image[:,start:end]
             image_64=resize(word_image,[64,64])
             format_64_image_list.append(image_64)
         merge_image=np.concatenate(format_64_image_list,axis=1)# 水平方向合并
@@ -143,7 +136,7 @@ def seg_sentences_image():
         # plt.imshow(merge_image)
         # plt.show()
         # print(word_position_list)
-from pathos.multiprocessing import ProcessingPool as Pool
+
 def seg_row_image(num_cpu=1):
     # 把一篇文章切割到行
     BASE_IMAGE_DIR="tmp/images"
@@ -300,5 +293,5 @@ def main():
         #         index+=1
 
 if __name__=="__main__":
-    #seg_sentences_image()
-    seg_row_image(num_cpu=6)
+    seg_sentences_image()
+    #seg_row_image(num_cpu=6)
