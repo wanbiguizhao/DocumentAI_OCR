@@ -20,6 +20,7 @@ import time
 import warnings
 
 import moco.builder
+from moco.data.dataset import WordImagePiceDataset
 import moco.loader
 import paddle
 #import torch.backends.cudnn as cudnn
@@ -150,3 +151,264 @@ parser.add_argument(
 )
 parser.add_argument("--cos", action="store_true", help="use cosine lr schedule")# paddle的学习率使用策略和pytorch不一样
 
+
+
+def main():
+    args = parser.parse_args()
+
+    if args.seed is not None:
+        random.seed(args.seed)
+        paddle.seed(args.seed)
+        #cudnn.deterministic = True
+        warnings.warn(
+            "You have chosen to seed training. "
+            "This will turn on the CUDNN deterministic setting, "
+            "which can slow down your training considerably! "
+            "You may see unexpected behavior when restarting "
+            "from checkpoints."
+        )
+
+    if args.gpu is not None:
+        warnings.warn(
+            "You have chosen a specific GPU. This will completely "
+            "disable data parallelism."
+        )
+
+    # if args.dist_url == "env://" and args.world_size == -1:
+    #     args.world_size = int(os.environ["WORLD_SIZE"])
+
+    # args.distributed = args.world_size > 1 or args.multiprocessing_distributed
+
+    #ngpus_per_node = torch.cuda.device_count()
+    ngpus_per_node = paddle.device.cuda.device_count()
+
+    # if args.multiprocessing_distributed:
+    #     # Since we have ngpus_per_node processes per node, the total world_size
+    #     # needs to be adjusted accordingly
+    #     args.world_size = ngpus_per_node * args.world_size
+    #     # Use torch.multiprocessing.spawn to launch distributed processes: the
+    #     # main_worker process function
+    #     mp.spawn(main_worker, nprocs=ngpus_per_node, args=(ngpus_per_node, args))
+    # else:
+    #     # Simply call main_worker function
+    #     main_worker(args.gpu, ngpus_per_node, args)
+    main_worker(args.gpu, ngpus_per_node, args)
+
+def main_worker(gpu, ngpus_per_node, args):
+    args.gpu = gpu
+
+    if args.gpu is not None:
+        print("Use GPU: {} for training".format(args.gpu))
+    print("=> creating model '{}'".format(args.arch))
+    model = moco.builder.MoCo(
+        HackResNet,
+        args.moco_dim,
+        args.moco_k,
+        args.moco_m,
+        args.moco_t,
+        args.mlp,
+    )
+    print(model)
+    #自习阅读了原来的代码，发现竟然只支持，多卡分布式训练，无语了，看不起单卡的人
+    # 图像大小是244 244，的非常小的一部分，转换一下也相当于4卡训练了
+    criterion = nn.CrossEntropyLoss()
+
+    lr_opti = optim.lr.CosineAnnealingDecay()
+    optimizer = optim.Momentum(
+        args.lr,
+        momentum=args.momentum,# pytorch momentum
+        parameters=model.parameters(),
+        weight_decay=args.weight_decay,
+    )# pytorch 对应的优化器是SGD
+    if args.resume:
+        if os.path.isfile(args.resume):
+            print("=> loading checkpoint '{}'".format(args.resume))
+            # if args.gpu is None:
+            #     checkpoint = torch.load(args.resume)
+            # else:
+            #     # Map model to be loaded to specified single gpu.
+            #     loc = "cuda:{}".format(args.gpu)
+            #     checkpoint = torch.load(args.resume, map_location=loc)
+            model.set_state_dict(paddle.load(args.resume))
+            # 暂时不考虑load优化器数据，看起来优化器数据量也非常大
+            #args.start_epoch = checkpoint["epoch"]
+            #model.load_state_dict(checkpoint["state_dict"])
+            #optimizer.load_state_dict(checkpoint["optimizer"])
+            print(
+                "=> loaded checkpoint '{}' (epoch {})".format(
+                    args.resume, 
+                )
+            )
+        else:
+            print("=> no checkpoint found at '{}'".format(args.resume))
+    
+    traindir = os.path.join(args.data)#先暂时把数据加载
+
+    normalize = transforms.Normalize(
+        mean=[0.485], std=[0.229]
+    )
+    # 咱们就先弄mocov1的数据增强
+    augmentation = [
+            transforms.RandomResizedCrop((16,48), scale=(0.2, 1.0)),
+            #transforms.RandomGrayscale(p=0.2), 啥也别说了，paddle没有这个功能
+            transforms.ColorJitter(0.4, 0.4, 0.4, 0.4),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            normalize,
+        ]
+    traindir = os.path.join(args.data)#先暂时把数据加载
+    train_dataset = WordImagePiceDataset(
+        traindir, moco.loader.TwoCropsTransform(transforms.Compose(augmentation))
+    )
+
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=args.batch_size,
+        shuffle=True,
+        num_workers=args.workers,
+        pin_memory=True,
+        sampler=None,
+        drop_last=True,
+    )
+
+    for epoch in range(args.start_epoch, args.epochs):
+        # 
+        # self.gnet_scheduler = optim.lr.CosineAnnealingDecay(max_learning_rate=self.lr,total_steps=100,end_learning_rate=self.lr/1000.0 , verbose=True)
+        # adjust_learning_rate(optimizer, epoch, args) 先跑起来再说吧
+
+        # train for one epoch
+        train(train_loader, model, criterion, optimizer, epoch, args)
+
+
+def adjust_learning_rate(optimizer, epoch, args):
+    # 需要把学习率写成一个类，然后再调用
+    pass
+
+def train(train_loader, model, criterion, optimizer, epoch, args):
+    batch_time = AverageMeter("Time", ":6.3f")
+    data_time = AverageMeter("Data", ":6.3f")
+    losses = AverageMeter("Loss", ":.4e")
+    top1 = AverageMeter("Acc@1", ":6.2f")
+    top5 = AverageMeter("Acc@5", ":6.2f")
+    progress = ProgressMeter(
+        len(train_loader),
+        [batch_time, data_time, losses, top1, top5],
+        prefix="Epoch: [{}]".format(epoch),
+    )
+
+    # switch to train mode
+    model.train()
+
+    end = time.time()
+    for i, (images, _) in enumerate(train_loader):
+        # measure data loading time
+        # train_loader会提个一个batch_size的图片，然后会做一次数据增强，然后在TwoCropsTransform中一份数据生成两份，变成不同的k和q。
+        data_time.update(time.time() - end)
+
+        if args.gpu is not None:
+            images[0] = images[0].cuda(args.gpu, non_blocking=True)
+            images[1] = images[1].cuda(args.gpu, non_blocking=True)
+
+        # compute output
+        output, target = model(im_q=images[0], im_k=images[1])
+        loss = criterion(output, target)
+
+        # acc1/acc5 are (K+1)-way contrast classifier accuracy
+        # measure accuracy and record loss
+        acc1, acc5 = accuracy(output, target, topk=(1, 5))
+        losses.update(loss.item(), images[0].size(0))
+        top1.update(acc1[0], images[0].size(0))
+        top5.update(acc5[0], images[0].size(0))
+
+        # compute gradient and do SGD step
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        # measure elapsed time
+        batch_time.update(time.time() - end)
+        end = time.time()
+
+        if i % args.print_freq == 0:
+            progress.display(i)
+
+
+def save_checkpoint(state, is_best, filename="checkpoint.pth.tar"):
+    torch.save(state, filename)
+    if is_best:
+        shutil.copyfile(filename, "model_best.pth.tar")
+
+
+class AverageMeter(object):
+    """Computes and stores the average and current value"""
+
+    def __init__(self, name, fmt=":f"):
+        self.name = name
+        self.fmt = fmt
+        self.reset()
+
+    def reset(self):
+        self.val = 0
+        self.avg = 0
+        self.sum = 0
+        self.count = 0
+
+    def update(self, val, n=1):
+        self.val = val
+        self.sum += val * n
+        self.count += n
+        self.avg = self.sum / self.count
+
+    def __str__(self):
+        fmtstr = "{name} {val" + self.fmt + "} ({avg" + self.fmt + "})"
+        return fmtstr.format(**self.__dict__)
+
+
+class ProgressMeter(object):
+    def __init__(self, num_batches, meters, prefix=""):
+        self.batch_fmtstr = self._get_batch_fmtstr(num_batches)
+        self.meters = meters
+        self.prefix = prefix
+
+    def display(self, batch):
+        entries = [self.prefix + self.batch_fmtstr.format(batch)]
+        entries += [str(meter) for meter in self.meters]
+        print("\t".join(entries))
+
+    def _get_batch_fmtstr(self, num_batches):
+        num_digits = len(str(num_batches // 1))
+        fmt = "{:" + str(num_digits) + "d}"
+        return "[" + fmt + "/" + fmt.format(num_batches) + "]"
+
+
+def adjust_learning_rate(optimizer, epoch, args):
+    """Decay the learning rate based on schedule"""
+    lr = args.lr
+    if args.cos:  # cosine lr schedule
+        lr *= 0.5 * (1.0 + math.cos(math.pi * epoch / args.epochs))
+    else:  # stepwise lr schedule
+        for milestone in args.schedule:
+            lr *= 0.1 if epoch >= milestone else 1.0
+    for param_group in optimizer.param_groups:
+        param_group["lr"] = lr
+
+
+def accuracy(output, target, topk=(1,)):
+    """Computes the accuracy over the k top predictions for the specified values of k"""
+    with torch.no_grad():
+        maxk = max(topk)
+        batch_size = target.size(0)
+
+        _, pred = output.topk(maxk, 1, True, True)
+        pred = pred.t()
+        correct = pred.eq(target.view(1, -1).expand_as(pred))
+
+        res = []
+        for k in topk:
+            correct_k = correct[:k].view(-1).float().sum(0, keepdim=True)
+            res.append(correct_k.mul_(100.0 / batch_size))
+        return res
+
+
+if __name__ == "__main__":
+    main()

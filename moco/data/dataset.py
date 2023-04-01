@@ -95,8 +95,8 @@ class WordImagePiceDataset(Dataset):
         # # 飞桨训练时内部数据格式默认为float32，将图像数据格式转换为 float32
         # image = image.astype('float32')
         # # 应用数据处理方法到图像上
-        # if self.transform is not None:
-        #     image = self.transform(image)
+        if self.transform is not None:
+            image = self.transform(image)
         # # CrossEntropyLoss要求label格式为int，将Label格式转换为 int
         # #label = int(label)
         # 返回图像和对应标签
