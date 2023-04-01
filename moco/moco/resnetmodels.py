@@ -204,17 +204,17 @@ class HackResNet(nn.Layer):
                                self.inplanes,
                                kernel_size=5,
                                stride=1,
-                               padding=1,
+                               padding=2,
                                bias_attr=False)
         #这一步不下采样
         # 16X48
         self.bn1 = self._norm_layer(self.inplanes)
         self.relu = nn.ReLU()
-        self.maxpool = nn.MaxPool2D(kernel_size=3, stride=1, padding=1)#？要，但是不下采样
-        self.layer1 = self._make_layer(block, 16, blocks=2)#in_size 16*48 outsize 16*48
-        self.layer2 = self._make_layer(block, 32, blocks=2, stride=2)#in_size 16*48 outsize 8*24
-        self.layer3 = self._make_layer(block, 64, 2, stride=2)# in_size 8*24 outsize 4*12
-        self.layer4 = self._make_layer(block, 128, 2, stride=2)# 4*12 -> 1*4
+        self.maxpool = nn.MaxPool2D(kernel_size=3, stride=2, padding=1)#？要，但是不下采样
+        self.layer1 = self._make_layer(block, 16, blocks=1)#in_size 16*48 outsize 16*48
+        self.layer2 = self._make_layer(block, 32, blocks=1, stride=2)#in_size 16*48 outsize 8*24
+        self.layer3 = self._make_layer(block, 64, 1, stride=2)# in_size 8*24 outsize 4*12
+        self.layer4 = self._make_layer(block, 128, 1, stride=2)# 4*12 -> 1*4
 
 
         if with_pool:
@@ -427,7 +427,7 @@ def _resnet(arch, Block, depth, pretrained, **kwargs):
 
     return model
 
-
-resnet_16_48=HackResNet(block=BasicBlock)
-params_info = paddle.summary(resnet_16_48,(1, 1, 16, 48))
-print(params_info)
+if __name__=="__main__":
+    resnet_16_48=HackResNet(block=BasicBlock)
+    params_info = paddle.summary(resnet_16_48,(1, 1, 16, 48))
+    print(params_info)
