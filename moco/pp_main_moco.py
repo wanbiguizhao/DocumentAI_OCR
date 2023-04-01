@@ -311,13 +311,13 @@ def train(train_loader, model:nn.Layer, criterion, optimizer, epoch, args):
 
         # compute output
         output, target = model(im_q=images[0], im_k=images[1])
-        loss = criterion(output, target)
+        loss = criterion(output, target)# 第0位是特别像的，但是第0位之后应该是特别不像的。
 
         # acc1/acc5 are (K+1)-way contrast classifier accuracy
         # measure accuracy and record loss
         acc1, acc5 = accuracy(output, target, topk=(1, 5))
         # losses.update(loss.item(), images[0].size(0)) pytorch
-        losses.update(loss.item(), images[0].shape[0])
+        losses.update(loss.item(), images[0].shape[0])# 用来计算损失是否在变小
         top1.update(acc1[0], images[0].shape[0])
         top5.update(acc5[0], images[0].shape[0])
 
@@ -401,8 +401,9 @@ def accuracy(output, target, topk=(1,)):
         batch_size = target.shape[0]
 
         _, pred = output.topk(maxk, 1, True, True)
+        # 256 个image，从output，找到值最大的五个坐标
         pred = pred.t()
-        correct = (pred==target.reshape([1, -1]).expand_as(pred))# paddle 
+        #correct = (pred==target.reshape([1, -1]).expand_as(pred))# paddle 用来标记，大的五个中，是否包含target中的数值。
         correct=fluid.layers.equal(pred,target.reshape([1, -1]).expand_as(pred).astype("int64"))
 
 

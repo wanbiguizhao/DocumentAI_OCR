@@ -39,7 +39,7 @@ def splitImage(image_bin):
     将图片切割成16*48的小片段，步长为4
     """
     # 第一步假设高度已经填充为48吧，宽度是4的整数倍
-    step=8
+    step=4
     h,w=image_bin.shape
     beg_index=0
     end_index=15
@@ -107,15 +107,50 @@ class WordImagePiceDataset(Dataset):
         步骤四：实现 __len__ 函数，返回数据集的样本总数
         """
         return len(self.data_list)
+import pickle
+def pickle_data(data_dir):
+    data_list = []
+    for image_path in tqdm(glob(os.path.join(data_dir,"*","*.png"),recursive=True)[:]):
+        image=cv.imread(image_path,cv.IMREAD_GRAYSCALE)
+        # 切掉白色的两边
+        blur = cv.GaussianBlur(image,(5,5),0)
+        ret3,th_image = cv.threshold(blur,0,255,cv.THRESH_BINARY+cv.THRESH_OTSU)
+        h,w=th_image.shape
+        if h>=48:
+            continue 
+        beg_index,end_index=imageStrip(th_image)
+        w=end_index-beg_index+1
+        h_padding=48-h
+        w_padding=(4-w%4)%4
+        top, bottom = h_padding//2, h_padding-(h_padding//2)# 上下部分填充
+        left,right=w_padding//2,w_padding-(w_padding//2)
+        new_image = cv.copyMakeBorder(image[:,beg_index:end_index+1], top, bottom, left, right, cv.BORDER_CONSTANT, value=(255,))
+        data_list.extend([  new_image[: ,beg:end+1 ] for beg,end in splitImage(new_image) ])
+    with open("tmp/constract_image_pice.pkl",'wb') as imagePiceData:
+        pickle.dump(data_list,imagePiceData)
 
+
+def show_word_pice():
+    with open("tmp/constract_image_pice.pkl",'rb') as imagePiceData:
+        data=pickle.load(imagePiceData)
+        print(type(data))
+        from matplotlib import pyplot as plt
+        print(len(data))
+        for x in range(32):
+            plt.subplot(1,32,x+1)
+            plt.imshow(data[x+200])
+        plt.show()
+        time.sleep(10)
 
 if __name__=="__main__":
-    from matplotlib import pyplot as plt
-    ds=WordImagePiceDataset(data_dir="tmp/project_ocrSentences")
-    print(len(ds))
-    plt.figure(32)
-    for x in range(32):
-        plt.subplot(1,32,x+1)
-        plt.imshow(ds[x][0])
-    plt.show()
-    time.sleep(10) 
+    # from matplotlib import pyplot as plt
+    # ds=WordImagePiceDataset(data_dir="tmp/project_ocrSentences")
+    # print(len(ds))
+    # plt.figure(32)
+    # for x in range(32):
+    #     plt.subplot(1,32,x+1)
+    #     plt.imshow(ds[x][0])
+    # plt.show()
+    # time.sleep(10) 
+    pickle_data("tmp/project_ocrSentences")
+    # show_word_pice()

@@ -175,7 +175,7 @@ class MoCo(nn.Layer):
         # dequeue and enqueue
         self._dequeue_and_enqueue(k)
 
-        return logits, labels
+        return logits, labels# labels 表示logits中第0列是正确的
 
 
 # utils
