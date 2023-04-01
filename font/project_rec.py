@@ -291,7 +291,30 @@ def main():
         #         #print(image_path)
         #         save_image(image_path,img)
         #         index+=1
-
+def data_sentences_image():
+    """
+    做一些数据统计
+    """
+    BASE_IMAGE_DIR="tmp/project_ocrSentences"
+    #DST_IMAGE_DIR="tmp/ocrSentences_resize"
+    width_list=[]
+    hight_list=[]
+    for image_path in tqdm(glob.glob(os.path.join(PROJECT_DIR,BASE_IMAGE_DIR,"*","*.png"),recursive=True)[:2000]):
+        image=cv.imread(image_path,cv.IMREAD_GRAYSCALE)
+        h,w=image.shape
+        if h>60:
+            if h< 80:
+                plt.imshow(image)
+                plt.show()
+            continue
+        width_list.append(w)
+        hight_list.append(h)
+    print(np.mean(width_list),
+        np.mean(hight_list),
+        np.max(width_list),
+        np.max(hight_list)
+        
+        )
 if __name__=="__main__":
-    seg_sentences_image()
+    data_sentences_image()
     #seg_row_image(num_cpu=6)
