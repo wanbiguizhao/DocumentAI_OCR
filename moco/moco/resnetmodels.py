@@ -176,7 +176,7 @@ class HackResNet(nn.Layer):
     24*48
     """
     def __init__(self,
-                 block,
+                 block=BasicBlock,
                  depth=50,# 可以不要，自己定制化
                  width=64,
                  num_classes=0,
@@ -221,7 +221,7 @@ class HackResNet(nn.Layer):
             self.avgpool = nn.AdaptiveAvgPool2D((1, 1))
 
         if num_classes > 0:
-            self.fc = nn.Linear(512 * block.expansion, num_classes)
+            self.fc = nn.Linear(128 * block.expansion, num_classes)
         # 这个fc层不做任何分类操作。
     def _make_layer(self, block, planes, blocks, stride=1, dilate=False):
         norm_layer = self._norm_layer

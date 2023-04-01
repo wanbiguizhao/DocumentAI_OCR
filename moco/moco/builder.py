@@ -44,14 +44,15 @@ class MoCo(nn.Layer):
         for param_q, param_k in zip(
             self.encoder_q.parameters(), self.encoder_k.parameters()
         ):
-            param_k.data.copy_(param_q.data)  # initialize
+            #param_k.data.copy_(param_q.data)  # initialize pytorch
+            param_k.set_value(param_q) #paddle
             param_k.requires_grad = False  # not update by gradient
 
         # create the queue
         self.register_buffer("queue", paddle.randn([dim, K]))#randn paddle 和pytorch 不一样的地方
         self.queue = nn.functional.normalize(self.queue, axis=0)# 对数据进行一次归一化操作，K个字典
 
-        self.register_buffer("queue_ptr", paddle.zeros(1, dtype='int32'))# 单独生成了一个指针？指向某个位置。指向了某个梯度？
+        self.register_buffer("queue_ptr", paddle.zeros([1], dtype='int32'))# 单独生成了一个指针？指向某个位置。指向了某个梯度？,paddle 要求必须是[1]这样的数组
 
     @paddle.no_grad()
     def _momentum_update_key_encoder(self):
@@ -61,12 +62,14 @@ class MoCo(nn.Layer):
         for param_q, param_k in zip(
             self.encoder_q.parameters(), self.encoder_k.parameters()
         ):
-            param_k.data = param_k.data * self.m + param_q.data * (1.0 - self.m)# 动量更新参数
+            #param_k.data = param_k.data * self.m + param_q.data * (1.0 - self.m)# 动量更新参数
+            param_k.set_value(param_k* self.m + param_q * (1.0 - self.m) )
+            # paddle 的代码
 
     @paddle.no_grad()
     def _dequeue_and_enqueue(self, keys):
         # gather keys before updating queue
-        keys = concat_all_gather(keys)# 收集了所有的K
+        #keys = concat_all_gather(keys)# 收集了所有的K
 
         batch_size = keys.shape[0] # 知道了batch_size
 
@@ -137,7 +140,7 @@ class MoCo(nn.Layer):
 
         # compute query features
         q = self.encoder_q(im_q)  # queries: NxC
-        q = nn.functional.normalize(q, dim=1)
+        q = nn.functional.normalize(q, axis=1)
 
         # compute key features
         with paddle.no_grad():  # no gradient to keys
@@ -148,7 +151,7 @@ class MoCo(nn.Layer):
             # 之后的论文不再使用这个步骤了，shuffling BN.
 
             k = self.encoder_k(im_k)  # keys: NxC
-            k = nn.functional.normalize(k, dim=1)
+            k = nn.functional.normalize(k, axis=1)
 
             # undo shuffle
             #k = self._batch_unshuffle_ddp(k, idx_unshuffle)
@@ -156,18 +159,18 @@ class MoCo(nn.Layer):
         # compute logits
         # Einstein sum is more intuitive
         # positive logits: Nx1
-        l_pos = paddle.einsum("nc,nc->n", [q, k]).unsqueeze(-1)
+        l_pos = paddle.einsum("nc,nc->n", q, k).unsqueeze(-1)# 百度把pytorch中要添加[]的地方去掉，不添加中括号的地方加上。
         # negative logits: NxK
-        l_neg = paddle.einsum("nc,ck->nk", [q, self.queue.clone().detach()])
+        l_neg = paddle.einsum("nc,ck->nk", q, self.queue.clone().detach())
 
         # logits: Nx(1+K)
-        logits = paddle.concat([l_pos, l_neg], dim=1)
+        logits = paddle.concat([l_pos, l_neg], axis=1)
 
         # apply temperature
         logits /= self.T
 
         # labels: positive key indicators
-        labels = paddle.zeros(logits.shape[0], dtype='int32').cuda()
+        labels = paddle.zeros((logits.shape[0],), dtype='int32')#.cuda()
 
         # dequeue and enqueue
         self._dequeue_and_enqueue(k)

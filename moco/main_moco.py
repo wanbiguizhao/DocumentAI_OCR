@@ -103,7 +103,7 @@ parser.add_argument(
     help="learning rate schedule (when to drop lr by 10x)",
 )
 parser.add_argument(
-    "--momentum", default=0.99, type=float, metavar="M", help="momentum of SGD solver"
+    "--momentum", default=0.9, type=float, metavar="M", help="momentum of SGD solver"
 )
 parser.add_argument(
     "--wd",

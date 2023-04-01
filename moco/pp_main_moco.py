@@ -18,9 +18,9 @@ import random
 import shutil
 import time
 import warnings
-
+from  paddle import fluid
 import moco.builder
-from moco.data.dataset import WordImagePiceDataset
+from data.dataset import WordImagePiceDataset
 import moco.loader
 import paddle
 #import torch.backends.cudnn as cudnn
@@ -50,7 +50,7 @@ import paddle.vision.transforms as transforms
 # ) # 暂不使用
 
 parser = argparse.ArgumentParser(description="乞丐版Paddle V100 字符切割训练")
-parser.add_argument("data", metavar="DIR", help="path to dataset,指向按行切割的图片的文件夹目录")
+parser.add_argument("--data",type=str,default="tmp/project_ocrSentences", metavar="DIR", help="path to dataset,指向按行切割的图片的文件夹目录")
 parser.add_argument(
     "-j",
     "--workers",
@@ -199,7 +199,7 @@ def main_worker(gpu, ngpus_per_node, args):
 
     if args.gpu is not None:
         print("Use GPU: {} for training".format(args.gpu))
-    print("=> creating model '{}'".format(args.arch))
+    print("=> creating model '{}'".format("自定义的Resnet"))
     model = moco.builder.MoCo(
         HackResNet,
         args.moco_dim,
@@ -213,7 +213,7 @@ def main_worker(gpu, ngpus_per_node, args):
     # 图像大小是244 244，的非常小的一部分，转换一下也相当于4卡训练了
     criterion = nn.CrossEntropyLoss()
 
-    lr_opti = optim.lr.CosineAnnealingDecay()
+    #lr_opti = optim.lr.CosineAnnealingDecay()
     optimizer = optim.Momentum(
         args.lr,
         momentum=args.momentum,# pytorch momentum
@@ -249,16 +249,16 @@ def main_worker(gpu, ngpus_per_node, args):
     )
     # 咱们就先弄mocov1的数据增强
     augmentation = [
-            transforms.RandomResizedCrop((16,48), scale=(0.2, 1.0)),
+            #transforms.RandomResizedCrop((16,48), scale=(0.2, 1.0)),
             #transforms.RandomGrayscale(p=0.2), 啥也别说了，paddle没有这个功能
-            transforms.ColorJitter(0.4, 0.4, 0.4, 0.4),
+            #transforms.ColorJitter(0.4, 0.4, 0.4, 0.4),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
             normalize,
         ]
     traindir = os.path.join(args.data)#先暂时把数据加载
     train_dataset = WordImagePiceDataset(
-        traindir, moco.loader.TwoCropsTransform(transforms.Compose(augmentation))
+        traindir, transform=moco.loader.TwoCropsTransform(transforms.Compose(augmentation))
     )
 
     train_loader = DataLoader(
@@ -266,8 +266,8 @@ def main_worker(gpu, ngpus_per_node, args):
         batch_size=args.batch_size,
         shuffle=True,
         num_workers=args.workers,
-        pin_memory=True,
-        sampler=None,
+        #pin_memory=True, paddle 没有过
+        #sampler=None,
         drop_last=True,
     )
 
@@ -284,7 +284,7 @@ def adjust_learning_rate(optimizer, epoch, args):
     # 需要把学习率写成一个类，然后再调用
     pass
 
-def train(train_loader, model, criterion, optimizer, epoch, args):
+def train(train_loader, model:nn.Layer, criterion, optimizer, epoch, args):
     batch_time = AverageMeter("Time", ":6.3f")
     data_time = AverageMeter("Data", ":6.3f")
     losses = AverageMeter("Loss", ":.4e")
@@ -306,8 +306,8 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
         data_time.update(time.time() - end)
 
         if args.gpu is not None:
-            images[0] = images[0].cuda(args.gpu, non_blocking=True)
-            images[1] = images[1].cuda(args.gpu, non_blocking=True)
+            images[0] = images[0].cuda(args.gpu, non_blocking=True)# 其实应该是同一个batch
+            images[1] = images[1].cuda(args.gpu, non_blocking=True)# 
 
         # compute output
         output, target = model(im_q=images[0], im_k=images[1])
@@ -316,12 +316,13 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
         # acc1/acc5 are (K+1)-way contrast classifier accuracy
         # measure accuracy and record loss
         acc1, acc5 = accuracy(output, target, topk=(1, 5))
-        losses.update(loss.item(), images[0].size(0))
-        top1.update(acc1[0], images[0].size(0))
-        top5.update(acc5[0], images[0].size(0))
+        # losses.update(loss.item(), images[0].size(0)) pytorch
+        losses.update(loss.item(), images[0].shape[0])
+        top1.update(acc1[0], images[0].shape[0])
+        top5.update(acc5[0], images[0].shape[0])
 
         # compute gradient and do SGD step
-        optimizer.zero_grad()
+        optimizer.clear_grad()
         loss.backward()
         optimizer.step()
 
@@ -334,7 +335,7 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
 
 
 def save_checkpoint(state, is_best, filename="checkpoint.pth.tar"):
-    torch.save(state, filename)
+    paddle.save(state, filename)
     if is_best:
         shutil.copyfile(filename, "model_best.pth.tar")
 
@@ -361,7 +362,7 @@ class AverageMeter(object):
 
     def __str__(self):
         fmtstr = "{name} {val" + self.fmt + "} ({avg" + self.fmt + "})"
-        return fmtstr.format(**self.__dict__)
+        return fmtstr.format(**{"name":self.name,"val":float(self.val),"avg":float(self.avg)})
 
 
 class ProgressMeter(object):
@@ -395,18 +396,24 @@ def adjust_learning_rate(optimizer, epoch, args):
 
 def accuracy(output, target, topk=(1,)):
     """Computes the accuracy over the k top predictions for the specified values of k"""
-    with torch.no_grad():
+    with paddle.no_grad():
         maxk = max(topk)
-        batch_size = target.size(0)
+        batch_size = target.shape[0]
 
         _, pred = output.topk(maxk, 1, True, True)
         pred = pred.t()
-        correct = pred.eq(target.view(1, -1).expand_as(pred))
+        correct = (pred==target.reshape([1, -1]).expand_as(pred))# paddle 
+        correct=fluid.layers.equal(pred,target.reshape([1, -1]).expand_as(pred).astype("int64"))
+
 
         res = []
         for k in topk:
-            correct_k = correct[:k].view(-1).float().sum(0, keepdim=True)
-            res.append(correct_k.mul_(100.0 / batch_size))
+            #correct_k = correct[:k].view(-1).float().sum(0, keepdim=True)
+            correct_k = correct[:k].reshape([-1]).astype('float').sum(0, keepdim=True)
+            #res.append(correct_k.mul_(100.0 / batch_size))
+            #fluid.layers.nn.mul(correct_k,paddle.to_tensor([100.0 / batch_size]))
+            res.append(correct_k*(100.0 / batch_size))
+
         return res
 
 
