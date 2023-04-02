@@ -214,7 +214,7 @@ class HackResNet(nn.Layer):
         self.layer1 = self._make_layer(block, 16, blocks=1)#in_size 16*48 outsize 16*48
         self.layer2 = self._make_layer(block, 32, blocks=1, stride=2)#in_size 16*48 outsize 8*24
         self.layer3 = self._make_layer(block, 64, 1, stride=2)# in_size 8*24 outsize 4*12
-        self.layer4 = self._make_layer(block, 128, 1, stride=2)# 4*12 -> 1*4
+        self.layer4 = self._make_layer(block, 128, 1, stride=2)# 4*12 -> 1*3
 
 
         if with_pool:

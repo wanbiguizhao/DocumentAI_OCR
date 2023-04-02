@@ -72,22 +72,11 @@ def pickle_data(data_dir,num_cpus=1):
     if num_cpus==1:
         for image_path in tqdm( glob(os.path.join(data_dir,"*","*.png"),recursive=True)):
             data_list.extend(pickle_data_proc_image(image_path))
-
-        # data_list=proc_image(glob(os.path.join(data_dir,"*","*.png"),recursive=True)[:])
     else:
-        #path_list=list()
-        # 发现了一个bug 引入paddle的模型运行多进程就会报错，神奇的bug
         with Pool(nodes=num_cpus) as pool:
             for image_data_list in  list(tqdm(pool.imap(pickle_data_proc_image,glob(os.path.join(data_dir,"*","*.png"),recursive=True)[:5000]) )):
                 data_list.extend(image_data_list)
-        # data_list=list(
-        #             tqdm(
-        #                     pool.imap(proc_image,glob(os.path.join(data_dir,"*","*.png"),recursive=True)[:100])
-        #                 )
-        #             )
-        
-    with open("tmp/constract_image_pice_5000.pkl",'wb') as imagePiceData:
-        #np.save(imagePiceData,data_list)        
+    with open("tmp/constract_image_pice_5000.pkl",'wb') as imagePiceData:       
         pickle.dump(data_list,imagePiceData)
 
 
@@ -102,7 +91,80 @@ def show_word_pice(offest=1000):
             plt.imshow(data[x+offest])
         plt.show()
         time.sleep(10)
+def pickle_data_wip_proc_image(image_path):
+    image_info={}
+    image=cv.imread(image_path,cv.IMREAD_GRAYSCALE)
+    # 切掉白色的两边
+    blur = cv.GaussianBlur(image,(5,5),0)
+    ret3,th_image = cv.threshold(blur,0,255,cv.THRESH_BINARY+cv.THRESH_OTSU)
+    h,w=th_image.shape
+    if h>=48:
+        return None
+    beg_index,end_index=imageStrip(th_image)
+    w=end_index-beg_index+1
+    h_padding=48-h
+    w_padding=(4-w%4)%4
+    top, bottom = h_padding//2, h_padding-(h_padding//2)# 上下部分填充
+    left,right=w_padding//2,w_padding-(w_padding//2)
+    new_image = cv.copyMakeBorder(image[:,beg_index:end_index+1], top, bottom, left, right,cv.BORDER_CONSTANT, value=(255,))
+    image_info["image_path"]=image_path
+    image_info["image"]=new_image
+    image_info["crop_info"]=[beg_index,end_index]
+    image_info["seg_index"]=[]
+    # 记录一下图片，然后记录一下，图片切割后的图片例子，
+    # new_image_list=[] # 存储一下切割后的
+    # image_mapping={}, key 表示的切割的第i个元素， value： { image_index:{这个元素在图片中的索引位置},beg_index:int,end_index:int} 的数据
+    for beg,end in splitImage(new_image):
+        image_info["seg_index"].append(
+            [beg,end]
+        )
+    return image_info
+def pickle_data_wip(data_dir,num_cpus=1):
+    # pickle 一种新的数据结构
+    data_list = []
 
+    image_info={
+            "image_path":[],
+            "image":[],
+            "crop_info":[]
+        }
+    if num_cpus==1:
+        for image_path in tqdm( glob(os.path.join(data_dir,"*","*.png"),recursive=True)):
+
+            seg_info=pickle_data_wip_proc_image(image_path)
+            if not seg_info:
+                continue
+            image_info["image"].append(seg_info["image"])
+            image_info["image_path"].append(seg_info["image_path"])
+            image_info["crop_info"].append(seg_info["crop_info"])
+            for beg,end in image_info["seg_index"]:
+                data_list.append(
+                    {
+                        "image_index":len(image_info["image"])-1,
+                        "seg_beg_index":beg,
+                        "seg_end_index":end
+                    }
+                )
+
+    else:
+        with Pool(nodes=num_cpus) as pool:
+            for seg_info in  list(tqdm(pool.imap(pickle_data_wip_proc_image,glob(os.path.join(data_dir,"*","*.png"),recursive=True)) )):
+                if not seg_info:
+                    continue
+                image_info["image"].append(seg_info["image"])
+                image_info["image_path"].append(seg_info["image_path"])
+                image_info["crop_info"].append(seg_info["crop_info"])
+                for beg,end in seg_info["seg_index"]:
+                    data_list.append(
+                        {
+                            "image_index":len(image_info["image"])-1,
+                            "seg_beg_index":beg,
+                            "seg_end_index":end
+                        }
+                    )
+                
+    with open("tmp/constract_wip_all.pkl",'wb') as imagePiceData:       
+        pickle.dump({"data_list":data_list,"image_info":image_info},imagePiceData)
 if __name__=="__main__":
     # from matplotlib import pyplot as plt
     # ds=WordImagePiceDataset(data_dir="tmp/project_ocrSentences")
@@ -113,5 +175,6 @@ if __name__=="__main__":
     #     plt.imshow(ds[x][0])
     # plt.show()
     # time.sleep(10) 
-    pickle_data("tmp/project_ocrSentences",8)
+    #pickle_data("tmp/project_ocrSentences",8)
+    pickle_data_wip("tmp/project_ocrSentences",12)
     #show_word_pice(offest=10000)
