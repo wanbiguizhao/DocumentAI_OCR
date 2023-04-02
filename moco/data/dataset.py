@@ -104,6 +104,45 @@ class WordImagePiceDataset(Dataset):
         步骤四：实现 __len__ 函数，返回数据集的样本总数
         """
         return len(self.data_list)
+class WordImagePiceDatasetOBJ(Dataset):
+    """
+    直接使用pkl的数据
+    """
+    def __init__(self, data_path, label_path=None, transform=None):
+        """
+        步骤二：实现 __init__ 函数，初始化数据集，将样本和标签映射到列表中
+        """
+        super(WordImagePiceDatasetOBJ, self).__init__()
+        self.data_list = []
+        with open(data_path,'rb') as objfile:
+
+            self.data_list=pickle.load(objfile)
+        self.transform = transform
+    def __getitem__(self, index):
+        """
+        步骤三：实现 __getitem__ 函数，定义指定 index 时如何获取数据，并返回单条数据（样本数据、对应的标签）
+        """
+        # 根据索引，从列表中取出一个图像
+        image = self.data_list[index]
+        image=image.astype('float32')
+        # 读取灰度图
+        # image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+        # # 飞桨训练时内部数据格式默认为float32，将图像数据格式转换为 float32
+        # image = image.astype('float32')
+        # # 应用数据处理方法到图像上
+        if self.transform is not None:
+            image = self.transform(image)
+        # # CrossEntropyLoss要求label格式为int，将Label格式转换为 int
+        # #label = int(label)
+        # 返回图像和对应标签
+        return image, 0
+
+    def __len__(self):
+        """
+        步骤四：实现 __len__ 函数，返回数据集的样本总数
+        """
+        return len(self.data_list)
+
 import pickle
 def pickle_data_proc_image(image_path):
     #for image_path in  image_path_list :
@@ -159,6 +198,13 @@ def show_word_pice():
             plt.imshow(data[x+200])
         plt.show()
         time.sleep(10)
+def show_word_pice_dataset():
+    wip=WordImagePiceDatasetOBJ("tmp/constract_image_pice.pkl")
+    from matplotlib import pyplot as plt
+    for x in range(32):
+        plt.subplot(1,32,x+1)
+        plt.imshow(wip[x+200][0])
+    plt.show()
 
 if __name__=="__main__":
     # from matplotlib import pyplot as plt
@@ -170,5 +216,6 @@ if __name__=="__main__":
     #     plt.imshow(ds[x][0])
     # plt.show()
     # time.sleep(10) 
-    pickle_data("tmp/project_ocrSentences",2)
+    #pickle_data("tmp/project_ocrSentences",2)
     # show_word_pice()
+    show_word_pice_dataset()

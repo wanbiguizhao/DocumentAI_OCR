@@ -20,7 +20,7 @@ import time
 import warnings
 from  paddle import fluid
 import moco.builder
-from data.dataset import WordImagePiceDataset
+from data.dataset import WordImagePiceDataset, WordImagePiceDatasetOBJ
 import moco.loader
 import paddle
 #import torch.backends.cudnn as cudnn
@@ -50,7 +50,9 @@ import paddle.vision.transforms as transforms
 # ) # 暂不使用
 
 parser = argparse.ArgumentParser(description="乞丐版Paddle V100 字符切割训练")
-parser.add_argument("--data",type=str,default="tmp/project_ocrSentences", metavar="DIR", help="path to dataset,指向按行切割的图片的文件夹目录")
+parser.add_argument("--data",type=str,default="tmp/constract_image_pice_5000.pkl", metavar="DIR", help="path to dataset,指向按行切割的图片的文件夹目录")
+parser.add_argument("--checkpoint", type=str,default="tmp/", help="文件的保存路径")# paddle的学习率使用策略和pytorch不一样
+
 parser.add_argument(
     "-j",
     "--workers",
@@ -150,7 +152,6 @@ parser.add_argument(
     "--aug-plus", action="store_true", help="use moco v2 data augmentation"
 )
 parser.add_argument("--cos", action="store_true", help="use cosine lr schedule")# paddle的学习率使用策略和pytorch不一样
-
 
 
 def main():
@@ -257,7 +258,7 @@ def main_worker(gpu, ngpus_per_node, args):
             normalize,
         ]
     traindir = os.path.join(args.data)#先暂时把数据加载
-    train_dataset = WordImagePiceDataset(
+    train_dataset = WordImagePiceDatasetOBJ(
         traindir, transform=moco.loader.TwoCropsTransform(transforms.Compose(augmentation))
     )
 
@@ -270,7 +271,7 @@ def main_worker(gpu, ngpus_per_node, args):
         #sampler=None,
         drop_last=True,
     )
-
+    
     for epoch in range(args.start_epoch, args.epochs):
         # 
         # self.gnet_scheduler = optim.lr.CosineAnnealingDecay(max_learning_rate=self.lr,total_steps=100,end_learning_rate=self.lr/1000.0 , verbose=True)
@@ -296,10 +297,16 @@ def train(train_loader, model:nn.Layer, criterion, optimizer, epoch, args):
         prefix="Epoch: [{}]".format(epoch),
     )
 
+    final_checkpoint = dict()
+    final_checkpoint["epoch"] = epoch
+    
     # switch to train mode
     model.train()
-
     end = time.time()
+    model_save_info=[]
+    best_acc1=0
+    best_acc5=0
+    best_loss=100
     for i, (images, _) in enumerate(train_loader):
         # measure data loading time
         # train_loader会提个一个batch_size的图片，然后会做一次数据增强，然后在TwoCropsTransform中一份数据生成两份，变成不同的k和q。
@@ -312,7 +319,7 @@ def train(train_loader, model:nn.Layer, criterion, optimizer, epoch, args):
         # compute output
         output, target = model(im_q=images[0], im_k=images[1])
         loss = criterion(output, target)# 第0位是特别像的，但是第0位之后应该是特别不像的。
-
+        final_checkpoint["loss"] = loss
         # acc1/acc5 are (K+1)-way contrast classifier accuracy
         # measure accuracy and record loss
         acc1, acc5 = accuracy(output, target, topk=(1, 5))
@@ -332,13 +339,35 @@ def train(train_loader, model:nn.Layer, criterion, optimizer, epoch, args):
 
         if i % args.print_freq == 0:
             progress.display(i)
+        if i>0 and i%10==0:
+            # 保存一下
+            is_best=False
+            if acc1>best_acc1 and acc5>best_acc5 and loss<best_loss:
+                is_best=True
+                best_acc1=acc1
+                best_acc5=acc5
+                best_loss=loss
+            process_checkpoint(model_save_info,is_best,model,optimizer,epoch,i,args)
 
 
-def save_checkpoint(state, is_best, filename="checkpoint.pth.tar"):
-    paddle.save(state, filename)
-    if is_best:
-        shutil.copyfile(filename, "model_best.pth.tar")
-
+def process_checkpoint(model_save_info,is_best,model,optimizer,epoch,i,args):
+    if len(model_save_info)>5:
+        REMOVE_PD_PATH=model_save_info.pop(0)
+        for model_path in REMOVE_PD_PATH:
+            if os.path.exists(model_path):
+                print("remove : {}".format(model_path))
+                os.remove(model_path)
+    save_prefix="epoch_{:03d}_".format(epoch)+"bitchth_{:06d}_".format(i)
+    model_path=os.path.join(args.checkpoint, save_prefix+"model.pdparams")
+    optimizer_path=os.path.join(args.checkpoint, save_prefix+"optimizer.pdopt")
+    paddle.save(model.state_dict(),model_path)
+    paddle.save(optimizer.state_dict(),optimizer_path)
+    model_save_info.append(
+        [
+            model_path,
+            optimizer_path
+        ]
+    )
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
@@ -399,7 +428,6 @@ def accuracy(output, target, topk=(1,)):
     with paddle.no_grad():
         maxk = max(topk)
         batch_size = target.shape[0]
-
         _, pred = output.topk(maxk, 1, True, True)
         # 256 个image，从output，找到值最大的五个坐标
         pred = pred.t()

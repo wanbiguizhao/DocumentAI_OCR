@@ -78,7 +78,7 @@ def pickle_data(data_dir,num_cpus=1):
         #path_list=list()
         # 发现了一个bug 引入paddle的模型运行多进程就会报错，神奇的bug
         with Pool(nodes=num_cpus) as pool:
-            for image_data_list in  list(tqdm(pool.imap(pickle_data_proc_image,glob(os.path.join(data_dir,"*","*.png"),recursive=True)[:10000]) )):
+            for image_data_list in  list(tqdm(pool.imap(pickle_data_proc_image,glob(os.path.join(data_dir,"*","*.png"),recursive=True)[:5000]) )):
                 data_list.extend(image_data_list)
         # data_list=list(
         #             tqdm(
@@ -86,7 +86,7 @@ def pickle_data(data_dir,num_cpus=1):
         #                 )
         #             )
         
-    with open("tmp/constract_image_pice.pkl",'wb') as imagePiceData:
+    with open("tmp/constract_image_pice_5000.pkl",'wb') as imagePiceData:
         #np.save(imagePiceData,data_list)        
         pickle.dump(data_list,imagePiceData)
 
@@ -113,5 +113,5 @@ if __name__=="__main__":
     #     plt.imshow(ds[x][0])
     # plt.show()
     # time.sleep(10) 
-    #pickle_data("tmp/project_ocrSentences",8)
-    show_word_pice(offest=10000)
+    pickle_data("tmp/project_ocrSentences",8)
+    #show_word_pice(offest=10000)
