@@ -1,11 +1,11 @@
 import os
 import time
-import cv2
 import numpy as np
 from paddle.io import Dataset
 from glob import glob
 from tqdm import tqdm
 import cv2 as cv 
+from pathos.multiprocessing import ProcessingPool as Pool
 
 
 def imageStrip(image_bin):
@@ -33,7 +33,7 @@ def imageStrip(image_bin):
             end_index-=1
         else:
             break
-    return beg_index-16,end_index+16
+    return max(beg_index-16,0),min(end_index+16,w-1)
 def splitImage(image_bin):
     """
     将图片切割成16*48的小片段，步长为4
@@ -49,9 +49,6 @@ def splitImage(image_bin):
         beg_index+=step 
         end_index+=step
     return location_list
-        
-
-
 
 class WordImagePiceDataset(Dataset):
     """
@@ -108,25 +105,46 @@ class WordImagePiceDataset(Dataset):
         """
         return len(self.data_list)
 import pickle
-def pickle_data(data_dir):
+def pickle_data_proc_image(image_path):
+    #for image_path in  image_path_list :
+    #print(image_path)
+    image=cv.imread(image_path,cv.IMREAD_GRAYSCALE)
+    # 切掉白色的两边
+    blur = cv.GaussianBlur(image,(5,5),0)
+    ret3,th_image = cv.threshold(blur,0,255,cv.THRESH_BINARY+cv.THRESH_OTSU)
+    h,w=th_image.shape
+    if h>=48:
+        return [] 
+    beg_index,end_index=imageStrip(th_image)
+    w=end_index-beg_index+1
+    h_padding=48-h
+    w_padding=(4-w%4)%4
+    top, bottom = h_padding//2, h_padding-(h_padding//2)# 上下部分填充
+    left,right=w_padding//2,w_padding-(w_padding//2)
+    new_image = cv.copyMakeBorder(image[:,beg_index:end_index+1], top, bottom, left, right, cv.BORDER_CONSTANT, value=(255,))
+    return[  new_image[: ,beg:end+1 ] for beg,end in splitImage(new_image) ]
+def pickle_data(data_dir,num_cpus=1):
     data_list = []
-    for image_path in tqdm(glob(os.path.join(data_dir,"*","*.png"),recursive=True)[:]):
-        image=cv.imread(image_path,cv.IMREAD_GRAYSCALE)
-        # 切掉白色的两边
-        blur = cv.GaussianBlur(image,(5,5),0)
-        ret3,th_image = cv.threshold(blur,0,255,cv.THRESH_BINARY+cv.THRESH_OTSU)
-        h,w=th_image.shape
-        if h>=48:
-            continue 
-        beg_index,end_index=imageStrip(th_image)
-        w=end_index-beg_index+1
-        h_padding=48-h
-        w_padding=(4-w%4)%4
-        top, bottom = h_padding//2, h_padding-(h_padding//2)# 上下部分填充
-        left,right=w_padding//2,w_padding-(w_padding//2)
-        new_image = cv.copyMakeBorder(image[:,beg_index:end_index+1], top, bottom, left, right, cv.BORDER_CONSTANT, value=(255,))
-        data_list.extend([  new_image[: ,beg:end+1 ] for beg,end in splitImage(new_image) ])
+
+
+    if num_cpus==1:
+        for image_path in tqdm( glob(os.path.join(data_dir,"*","*.png"),recursive=True)):
+            data_list.extend(pickle_data_proc_image(image_path))
+
+        # data_list=proc_image(glob(os.path.join(data_dir,"*","*.png"),recursive=True)[:])
+    else:
+        #path_list=list()
+        with Pool(nodes=num_cpus) as pool:
+            for image_data_list in pool.map(pickle_data_proc_image,glob(os.path.join(data_dir,"*","*.png"),recursive=True)[:100]):
+                data_list.extend(image_data_list)
+        # data_list=list(
+        #             tqdm(
+        #                     pool.imap(proc_image,glob(os.path.join(data_dir,"*","*.png"),recursive=True)[:100])
+        #                 )
+        #             )
+        
     with open("tmp/constract_image_pice.pkl",'wb') as imagePiceData:
+        #np.save(imagePiceData,data_list)        
         pickle.dump(data_list,imagePiceData)
 
 
@@ -152,5 +170,5 @@ if __name__=="__main__":
     #     plt.imshow(ds[x][0])
     # plt.show()
     # time.sleep(10) 
-    pickle_data("tmp/project_ocrSentences")
+    pickle_data("tmp/project_ocrSentences",2)
     # show_word_pice()
