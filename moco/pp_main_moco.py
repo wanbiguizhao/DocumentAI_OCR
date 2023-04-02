@@ -154,6 +154,29 @@ parser.add_argument(
 parser.add_argument("--cos", action="store_true", help="use cosine lr schedule")# paddle的学习率使用策略和pytorch不一样
 
 
+
+
+class MYLR(optim.lr.LRScheduler):
+    """ 
+    自定义的一个学习率曲线
+    """
+
+    def __init__(self,learning_rate=0.1, last_epoch=-1, verbose=False,cos=False,epochs=200,schedule=[120, 160]):
+        
+        self.cos=cos
+        self.epochs=epochs# 总共的epoch数量
+        self.schedule=schedule
+        super(MYLR, self).__init__(learning_rate, last_epoch, verbose)
+
+    def get_lr(self):
+        if self.cos:
+            return self.base_lr * 0.5 * (1.0 + math.cos(math.pi * self.last_epoch / self.epochs))
+        else: 
+            lr=self.base_lr
+            for milestone in self.schedule:
+                lr *= 0.1 if self.last_epoch >= milestone else 1.0
+            return lr
+
 def main():
     args = parser.parse_args()
 
@@ -214,9 +237,9 @@ def main_worker(gpu, ngpus_per_node, args):
     # 图像大小是244 244，的非常小的一部分，转换一下也相当于4卡训练了
     criterion = nn.CrossEntropyLoss()
 
-    #lr_opti = optim.lr.CosineAnnealingDecay()
+    lr_opti =MYLR(learning_rate=args.lr,cos=args.cos,last_epoch=args.start_epoch,verbose=True,epochs=args.epochs,schedule=args.schedule)
     optimizer = optim.Momentum(
-        args.lr,
+        learning_rate=lr_opti,
         momentum=args.momentum,# pytorch momentum
         parameters=model.parameters(),
         weight_decay=args.weight_decay,
@@ -278,6 +301,7 @@ def main_worker(gpu, ngpus_per_node, args):
         # adjust_learning_rate(optimizer, epoch, args) 先跑起来再说吧
 
         # train for one epoch
+        lr_opti.step(epoch)# 改变学习率
         train(train_loader, model, criterion, optimizer, epoch, args)
 
 
