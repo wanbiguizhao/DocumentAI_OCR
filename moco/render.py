@@ -1,8 +1,11 @@
 import os
+PROJECT_DIR= os.path.dirname(
+    os.path.dirname(os.path.realpath( __file__))
+)
 from jinja2 import Environment,FileSystemLoader, PackageLoader, select_autoescape
 import re 
 env = Environment(
-    loader=FileSystemLoader("/home/liukun/ocr/DocumentAI_OCR/"),
+    loader=FileSystemLoader(PROJECT_DIR),
     autoescape=select_autoescape()
 )
 template = env.get_template("moco/jinja/image_template.html")
