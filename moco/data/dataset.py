@@ -129,7 +129,7 @@ class WIPDataset(Dataset):
         
         #for image_path in tqdm(glob(os.path.join(data_dir,"*","*.png"),recursive=True)[:20]):
         # 需要重新设计一下数据结构。
-        for image_path in tqdm(glob(os.path.join(data_dir+"*.png"),recursive=True)):
+        for image_path in sorted(tqdm(glob(os.path.join(data_dir+"*.png"),recursive=True))):
             image=cv.imread(image_path,cv.IMREAD_GRAYSCALE)
             # 切掉白色的两边
             blur = cv.GaussianBlur(image,(5,5),0)

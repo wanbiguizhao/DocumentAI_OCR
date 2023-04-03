@@ -148,7 +148,7 @@ def pickle_data_wip(data_dir,num_cpus=1):
 
     else:
         with Pool(nodes=num_cpus) as pool:
-            for seg_info in  list(tqdm(pool.imap(pickle_data_wip_proc_image,glob(os.path.join(data_dir,"*","*.png"),recursive=True)) )):
+            for seg_info in  list(tqdm(pool.imap(pickle_data_wip_proc_image,glob(os.path.join(data_dir,"*","*.png"),recursive=True)[:1000]) )):
                 if not seg_info:
                     continue
                 image_info["image"].append(seg_info["image"])
