@@ -27,7 +27,7 @@ for image_info in sorted(os.listdir("tmp/project_ocrSentences_dataset/word_image
     row_info.append(
         {
             "path":image_info,
-            "id_ds":id_ds[2:],
+            "id_ds":id_ds[1:],
             "id_cluster":id_cluster
         }
     )
