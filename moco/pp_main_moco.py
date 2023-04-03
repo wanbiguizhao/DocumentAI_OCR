@@ -21,7 +21,7 @@ import time
 import warnings
 from  paddle import fluid
 import moco.builder
-from data.dataset import WordImagePiceDataset, WordImagePiceDatasetOBJ
+from data.dataset import WordImagePiceDataset, WordImagePiceDatasetOBJ,WIPObjDataset
 import moco.loader
 import paddle
 #import torch.backends.cudnn as cudnn
@@ -51,7 +51,7 @@ import paddle.vision.transforms as transforms
 # ) # 暂不使用
 
 parser = argparse.ArgumentParser(description="乞丐版Paddle V100 字符切割训练")
-parser.add_argument("--data",type=str,default="tmp/constract_image_pice_5000.pkl", metavar="DIR", help="path to dataset,指向按行切割的图片的文件夹目录")
+parser.add_argument("--data",type=str,default="tmp/constract_wip_5000.pkl", metavar="DIR", help="path to dataset,指向按行切割的图片的文件夹目录")
 parser.add_argument("--checkpoint", type=str,default="tmp/", help="文件的保存路径")# paddle的学习率使用策略和pytorch不一样
 
 parser.add_argument(
@@ -282,7 +282,7 @@ def main_worker(gpu, ngpus_per_node, args):
             normalize,
         ]
     traindir = os.path.join(args.data)#先暂时把数据加载
-    train_dataset = WordImagePiceDatasetOBJ(
+    train_dataset = WIPObjDataset(
         traindir, transform=moco.loader.TwoCropsTransform(transforms.Compose(augmentation))
     )
 
