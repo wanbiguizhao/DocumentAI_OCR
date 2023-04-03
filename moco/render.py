@@ -13,7 +13,7 @@ print(os.getcwd())
 for image_info in sorted(os.listdir("tmp/project_ocrSentences_dataset/word_image_slice")):
     if "png" not in image_info:
         continue
-    if len(row_info)>30:
+    if len(row_info)>40:
         image_info_table.append(row_info)
         row_info=[]
     
@@ -27,7 +27,7 @@ for image_info in sorted(os.listdir("tmp/project_ocrSentences_dataset/word_image
     row_info.append(
         {
             "path":image_info,
-            "id_ds":id_ds,
+            "id_ds":id_ds[2:],
             "id_cluster":id_cluster
         }
     )
