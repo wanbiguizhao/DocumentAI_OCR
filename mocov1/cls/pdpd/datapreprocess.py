@@ -12,7 +12,7 @@ PROJECT_DIR= os.path.dirname(
                                 )
                             )
 DATASET_DIR=os.path.join(PROJECT_DIR,"moco","dataset")
-from sklearn.model_selection import train_test_split 
+
 import glob
 import paddle.vision.transforms as transforms
 import cv2 as cv 
@@ -89,7 +89,7 @@ def explain_labels(clean_row,labels_path):
     # 没有出现过特殊符号的情况
     if len(flag_stack)==0 and len(num_list)==0:
         num_list=num_stack
-    print(clean_row,"\t",list(zip(num_list,[import_flag]*len(num_list))))
+    #print(clean_row,"\t",list(zip(num_list,[import_flag]*len(num_list))))
     return num_list,import_flag
 def do_image_name_index_check(dataset_image_list):
     """
@@ -148,7 +148,7 @@ def load_image_labels_info(dataset_dir):
     return DATASET
             # 返回的应该是[dataset_dir下的路径，标签]
 
-def pipline01(dataset_dir,expansion=2):
+def pipline_data_mlp(dataset_dir,expansion=2):
     """
     专门为神经网络的图片使用，
     expansion，表示对于标记为import_flag的图片多复制几次。
@@ -173,5 +173,6 @@ def pipline01(dataset_dir,expansion=2):
     return new_labels_image_info
 #%%
 #load_image_labels_info(DATASET_DIR)    
-pipline01(DATASET_DIR,expansion=3)
+if __name__ == "__main__":
+    pipline_data_mlp(DATASET_DIR,expansion=3)
 # %%
