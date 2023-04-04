@@ -1,5 +1,7 @@
 
 # %%
+from collections import defaultdict
+from functools import reduce
 import os
 import re 
 PROJECT_DIR= os.path.dirname(
@@ -12,7 +14,8 @@ PROJECT_DIR= os.path.dirname(
 DATASET_DIR=os.path.join(PROJECT_DIR,"moco","dataset")
 from sklearn.model_selection import train_test_split 
 import glob
-
+import paddle.vision.transforms as transforms
+import cv2 as cv 
 def explain_labels(clean_row,labels_path):
     """
     对
@@ -21,6 +24,8 @@ def explain_labels(clean_row,labels_path):
     35-40*
     35+3
     这一类的数据进行解析
+    O(n)时间复杂度
+
     """
     import_flag=False 
     # 写一个状态机吧
@@ -47,8 +52,6 @@ def explain_labels(clean_row,labels_path):
                 print(labels_path,'->',clean_row,"Data Format Error ")
                 raise Exception()
             flag_stack.append(x)
-            
-    
     if find_num_flag:
         num_stack.append(current_num)
     assert len(num_stack)!=0
@@ -86,7 +89,8 @@ def explain_labels(clean_row,labels_path):
     # 没有出现过特殊符号的情况
     if len(flag_stack)==0 and len(num_list)==0:
         num_list=num_stack
-    print(clean_row,"\t",num_list,"\t",import_flag) 
+    print(clean_row,"\t",list(zip(num_list,[import_flag]*len(num_list))))
+    return num_list,import_flag
 def do_image_name_index_check(dataset_image_list):
     """
     对数据进行检查，确保图片的名称和索引可以一一对应上，
@@ -100,41 +104,74 @@ def do_image_name_index_check(dataset_image_list):
         assert matchObj
         id_ds=matchObj.groupdict()["id_ds"]
         assert index==int(id_ds)
-     
-def load_dataset(dataset_dir):
+def load_image_labels_info(dataset_dir):
+    """
+    因为采用小批量标注的原因，每次标注的结果，放在一个文件夹下面。
+    返回，每个标注文件的位置，
+        图片类型：WORD_TYPE 图片属于汉字的一部分 SPACE_TYPE 图片可以用来切割两个汉字
+        重要性：标注该图片属于两个汉字挨着特别紧密的情况
+    .
+    ├── wis_01
+        |---labels.txt
+    ├── wis_02
+    """
     import_data_index=[]# 
     WORD_TYPE=0# 表示图像是汉字的一部分
     SPACE_TYPE=1# 表示图像是两个汉字中间间隔
     SPACE_TYPE_LIST=[]
+    DATASET=[]
     for dir_path in os.listdir(dataset_dir):
         ds_image_dir=os.path.join(dataset_dir,dir_path)
         #print(ds_image_dir)
+        dataset_image_list=sorted(glob.glob(os.path.join(ds_image_dir,"word*.png")))
+        do_image_name_index_check(dataset_image_list)
+        one_dir_data=[{ "Image_Path":image_path,
+                        #"Image":cv.imread(image_path,cv.IMREAD_GRAYSCALE) ,
+                        "Image_Type":WORD_TYPE,
+                        "Import_Flag": False } for image_path in dataset_image_list]
         labels_path=os.path.join(dataset_dir,dir_path,'labels.txt')
         if not os.path.exists(labels_path) or not os.path.isfile(labels_path):
             # 文件不存在
             assert False 
-        dataset_image_list=sorted(glob.glob(os.path.join(ds_image_dir,"word*.png")))
-        do_image_name_index_check(dataset_image_list)
-    
         with open(labels_path,'r') as lab_file:
             # 找到目录下对应的
-            
             for rowdata in lab_file.readlines():
                 #print(rowdata)
                 clean_row=rowdata.strip("\n").strip("\t")
                 if not clean_row:
                     continue 
-                    #print(clean_row)
-
-
-
+                num_list,import_flag=explain_labels(clean_row,labels_path)
+                for num_index in num_list:
+                    one_dir_data[num_index]["Image_Type"]=SPACE_TYPE
+                    one_dir_data[num_index]["Import_Flag"]=import_flag
+        DATASET.extend(one_dir_data)
+    return DATASET
             # 返回的应该是[dataset_dir下的路径，标签]
 
-
-            
-
-            
+def pipline01(dataset_dir,expansion=2):
+    """
+    专门为神经网络的图片使用，
+    expansion，表示对于标记为import_flag的图片多复制几次。
+    expansion=1，2，3，4，5，6 表示复制几次
+    """
+    def merge_data(x,y):
+        # 数据结构变化，原来的数据结构是：[{},{},{}]现在变化为{key:[],key:[],}
+        if x is None:
+            x=defaultdict(list)
+        t=1 if y["Import_Flag"] else expansion
+        while t<=expansion:
+            # 执行多次复制功能
+            for key,val in y.items():
+                x[key].append(val)
+            t+=1
+        return x 
+    labels_image_info=load_image_labels_info(dataset_dir) 
+    new_labels_image_info=reduce(merge_data,[None]+labels_image_info)# 执行了多次复制功能
+    # 加载图片
+    #print(type(new_labels_image_info), sum(new_labels_image_info["Image_Type"]), [ [key,len(val)] for key,val in new_labels_image_info.items()])
+    #train_data ,test_data =train_test_split(labels_image_info,test_size=0.2)
+    return new_labels_image_info
 #%%
-load_dataset(DATASET_DIR)    
-
+#load_image_labels_info(DATASET_DIR)    
+pipline01(DATASET_DIR,expansion=3)
 # %%
