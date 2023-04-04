@@ -14,7 +14,7 @@ data_list=pipline_data_mlp(dataset_dir=os.path.join(PROJECT_DIR,"mocov1","datase
 #train_data,test_data=train_test_split(data_list,test_size=0.2)
 train_data=data_list
 encoder_q_model,encoder_k_model=load_model("tmp/checkpoint/epoch_011_bitchth_003500_model.pdparams")
-cls_model=WordImageSliceMLPCLS(encoder_k_model)
+cls_model=WordImageSliceMLPCLS(encoder_model_k=encoder_k_model,encoder_model_q=encoder_k_model)
 
 normalize = transforms.Normalize(
         mean=[0.485], std=[0.229]
