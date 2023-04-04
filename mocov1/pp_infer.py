@@ -63,7 +63,7 @@ def pipline01():
             #transforms.RandomResizedCrop((16,48), scale=(0.2, 1.0)),
             #transforms.RandomGrayscale(p=0.2), 啥也别说了，paddle没有这个功能
             #transforms.ColorJitter(0.4, 0.4, 0.4, 0.4),
-            transforms.RandomHorizontalFlip(),
+            transforms.RandomHorizontalFlip(),#感觉水平翻转，起的是坏的作用。
             transforms.ToTensor(),
             normalize,
         ]
@@ -141,7 +141,7 @@ for k, (images, _) in enumerate(train_loader):
     kmeans.fit(vec_list)
     predict_info=kmeans.predict(vec_list)
     
-    seg_img_numpy=images[2].numpy()
+    seg_img_numpy=images[2].numpy()# 这个图片是原始的图片
     img_len=seg_img_numpy.shape[0]
     i=0
     while i< img_len:

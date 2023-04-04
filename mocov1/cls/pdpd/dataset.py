@@ -9,6 +9,7 @@ class MLPDataset(Dataset):
         self.image_list=list(map(lambda x:cv.imread(x,cv.IMREAD_GRAYSCALE),labels_image_info["Image_Path"] ))
         self.image_type_list=labels_image_info["Image_Type"]
         self.image_import_flag_list=labels_image_info["Import_Flag"]
+        self.transform=transform
 
     def __getitem__(self, index):
         """
