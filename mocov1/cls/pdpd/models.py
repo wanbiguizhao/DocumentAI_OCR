@@ -19,7 +19,7 @@ class WordImageSliceMLPCLS(nn.Layer):
         super().__init__()
         self.encoder_model_K:nn.Layer=encoder_model_k #基于对比学习的backbone 
         self.encoder_model_Q:nn.Layer=encoder_model_q #基于对比学习的backbone 
-        self.encoder_model=self.encoder_model_K
+        self.encoder_model=self.encoder_model_Q
         # 冻结backbone的参数
         # for param in encoder_model.parameters():
         #     param.stop_gradient = True
