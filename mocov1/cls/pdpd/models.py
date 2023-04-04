@@ -23,6 +23,12 @@ class WordImageSliceMLPCLS(nn.Layer):
         # 冻结backbone的参数
         # for param in encoder_model.parameters():
         #     param.stop_gradient = True
+        self.qw=nn.Sequential(
+            nn.Linear(dim,dim)
+        )
+        self.kw=nn.Sequential(
+            nn.Linear(dim,dim)
+        )
         self.linear = nn.Sequential(
                 nn.Linear(dim, 64),
                 nn.ReLU(),
@@ -32,7 +38,11 @@ class WordImageSliceMLPCLS(nn.Layer):
 
             )
     def forward(self, *inputs, **kwargs):
-        x = self.encoder_model(inputs)
+        kx=self.encoder_model_K(inputs)
+        qx=self.encoder_model_Q(inputs)
+        kw=self.kw(inputs)
+        qw=self.qw(inputs)
+        x = kx*paddle.dot(kx,kw)+qx*paddle.dot(qx,qw)
         x=self.linear(x)
         return x
 
