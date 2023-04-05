@@ -175,6 +175,9 @@ def pipline_data_mlp(dataset_dir,expansion=2,test_size=0.2):
     #print(type(new_labels_image_info), sum(new_labels_image_info["Image_Type"]), [ [key,len(val)] for key,val in new_labels_image_info.items()])
     #train_data ,test_data =train_test_split(labels_image_info,test_size=0.2)
     return train_labels,test_labels
+def pipline_infer_data_mlp(dataset_dir):
+    pass
+
 #%%
 #load_image_labels_info(DATASET_DIR)    
 

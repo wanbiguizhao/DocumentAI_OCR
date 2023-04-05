@@ -228,7 +228,7 @@ def eval(test_loader, model:nn.Layer,loss_function, epoch, args):
 
 def get_dataloader(dataset_dir,expansion,args):
     # 获得数据loader
-    train_data,test_data=pipline_data_mlp(dataset_dir=dataset_dir,expansion=expansion,test_size=args.test_size)
+    train_data,test_data=pipline_data_mlp(dataset_dir=dataset_dir,expansion=expansion,test_size=0)
     # 按照比例划分train 和 test数据
     pin_transform=transforms.Compose(
         [
