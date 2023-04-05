@@ -67,7 +67,7 @@ def pipline01():
             transforms.ToTensor(),
             normalize,
         ]
-    encoder_q_model,encoder_k_model=load_model("tmp/checkpoint/epoch_011_bitchth_003500_model.pdparams")
+    encoder_q_model,encoder_k_model=load_model("tmp/checkpoint/epoch_002_bitchth_013000_model.pdparams")
     #model_ds=WIPDataset(data_dir="tmp/project_ocrSentences/1954-02/1954-02_05_02")# 这个是原始数据集使用
     model_ds=WIPDataset(data_dir="tmp/project_ocrSentences/1954-02/1954-02_05_021",transform=moco.loader.TwoCropsTransform(transforms.Compose(augmentation)))#这个是模型使用，要对数据做一些变化。
     #show_word_pice_dataset(model_ds)
@@ -139,7 +139,7 @@ def infer():
     for k, (images, _) in enumerate(train_loader):    
         vec_list=encoder_k_model(images[0])
         print(len(vec_list))
-        kmeans = KMeans(init="k-means++", n_clusters=10, n_init=4)
+        kmeans = KMeans(init="k-means++", n_clusters=2, n_init=4)
         kmeans.fit(vec_list)
         predict_info=kmeans.predict(vec_list)
         

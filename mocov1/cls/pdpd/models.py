@@ -26,12 +26,12 @@ class WordImageSliceMLPCLS(nn.Layer):
             nn.Linear(dim,2)
             )
         self.linear = nn.Sequential(
-                nn.Linear(dim, 256),
+                nn.Linear(dim, 64),
                 nn.ReLU(),
-                nn.Linear(256, 64), 
+                nn.Linear(64, 16), 
                 nn.ReLU(),
-                nn.Linear(64, 8),
-                nn.Linear(8, num_classes),
+                #nn.Linear(6, 8),
+                nn.Linear(16, num_classes),
             )
         self.g0_sig=nn.Sigmoid()
         self.g1_sig=nn.Sigmoid()
@@ -56,6 +56,6 @@ if __name__ == "__main__":
     #main()
     from mocov1.pp_infer import load_model
     encoder_q_model,encoder_k_model=load_model("tmp/checkpoint/epoch_011_bitchth_003500_model.pdparams")
-    mlpcls=WordImageSliceMLPCLS(encoder_k_model)
+    mlpcls=WordImageSliceMLPCLS(encoder_k_model,encoder_q_model)
     params_info = paddle.summary(mlpcls,(1, 1, 16, 48))
     print(params_info)

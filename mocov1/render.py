@@ -8,7 +8,7 @@ env = Environment(
     loader=FileSystemLoader(PROJECT_DIR),
     autoescape=select_autoescape()
 )
-template = env.get_template("moco/jinja/image_template.html")
+template = env.get_template("mocov1/jinja/image_template.html")
 image_info_table=[]
 row_info=[]
 col_count=0
