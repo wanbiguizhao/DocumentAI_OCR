@@ -2,6 +2,7 @@
 # %%
 from collections import defaultdict
 from functools import reduce
+from sklearn.model_selection import train_test_split
 import os
 import re 
 PROJECT_DIR= os.path.dirname(
@@ -148,7 +149,7 @@ def load_image_labels_info(dataset_dir):
     return DATASET
             # 返回的应该是[dataset_dir下的路径，标签]
 
-def pipline_data_mlp(dataset_dir,expansion=2):
+def pipline_data_mlp(dataset_dir,expansion=2,test_size=0.2):
     """
     专门为神经网络的图片使用，
     expansion，表示对于标记为import_flag的图片多复制几次。
@@ -165,14 +166,26 @@ def pipline_data_mlp(dataset_dir,expansion=2):
                 x[key].append(val)
             t+=1
         return x 
+    
     labels_image_info=load_image_labels_info(dataset_dir) 
-    new_labels_image_info=reduce(merge_data,[None]+labels_image_info)# 执行了多次复制功能
+    train_data,test_data=train_test_split(labels_image_info,test_size=test_size)
+    train_labels=reduce(merge_data,[None]+train_data)# 执行了多次复制功能
+    test_labels=reduce(merge_data,[None]+test_data)# 执行了多次复制功能
     # 加载图片
     #print(type(new_labels_image_info), sum(new_labels_image_info["Image_Type"]), [ [key,len(val)] for key,val in new_labels_image_info.items()])
     #train_data ,test_data =train_test_split(labels_image_info,test_size=0.2)
-    return new_labels_image_info
+    return train_labels,test_labels
 #%%
 #load_image_labels_info(DATASET_DIR)    
+
+class DataCooker:
+    """
+    对数据进行加工,以后有时间再重构代码
+    """
+    def __init__(self,data_dir,expansion=2,test_size=0.2) -> None:
+
+        pass
+
 if __name__ == "__main__":
     pipline_data_mlp(DATASET_DIR,expansion=3)
 # %%
