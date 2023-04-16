@@ -47,10 +47,12 @@ def load_model():
     # 这块先进行硬编码把
     encoder_k_model=HackResNet(num_classes=128)
     encoder_q_model=HackResNet(num_classes=128)
-    encoder_k_model.set_state_dict(paddle.load("tmp/checkpoint/epoch_105_encoder_k_model.pdparams"))
-    encoder_q_model.set_state_dict(paddle.load("tmp/checkpoint/epoch_105_encoder_q_model.pdparams"))
+    # encoder_k_model.set_state_dict(paddle.load("tmp/checkpoint/epoch_105_encoder_k_model.pdparams"))
+    # encoder_q_model.set_state_dict(paddle.load("tmp/checkpoint/epoch_105_encoder_q_model.pdparams"))
+    encoder_k_model.set_state_dict(paddle.load("tmp/nobackbone/epoch_030_encoder_k_model.pdparams"))
+    encoder_q_model.set_state_dict(paddle.load("tmp/nobackbone/epoch_030_encoder_k_model.pdparams"))
     cls_model=WordImageSliceMLPCLS(encoder_model_k=encoder_k_model,encoder_model_q=encoder_q_model,freeze_flag=True)
-    cls_model.set_state_dict(paddle.load("tmp/checkpoint/epoch_105_model.pdparams"))
+    cls_model.set_state_dict(paddle.load("tmp/nobackbone/epoch_030_model.pdparams"))
     return cls_model
 
 def test_infer(args):

@@ -36,7 +36,7 @@ parser.add_argument(
 )
 parser.add_argument("--moco_model",type=str,default="tmp/checkpoint/epoch_002_bitchth_013000_model.pdparams", metavar="Backnone", help="对比模型的存储目录")
 parser.add_argument("--freeze_flag", action="store_true", help="训练模型是否冻结backbone")# paddle的学习率使用策略和pytorch不一样
-parser.add_argument("--checkpoint", type=str,default="tmp/checkpoint", help="训练模型的保存位置")# paddle的学习率使用策略和pytorch不一样
+parser.add_argument("--checkpoint", type=str,default="tmp/nobackbone", help="训练模型的保存位置")# paddle的学习率使用策略和pytorch不一样
 parser.add_argument("--checkpoint_steps", type=int,default=15, help="每过多少轮保存一下模型")# paddle的学习率使用策略和pytorch不一样
 
 parser.add_argument("--logdir", type=str,default="tmp/moco_cls", help="训练日志存储路径")# paddle的学习率使用策略和pytorch不一样
@@ -228,7 +228,7 @@ def eval(test_loader, model:nn.Layer,loss_function, epoch, args):
 
 def get_dataloader(dataset_dir,expansion,args):
     # 获得数据loader
-    train_data,test_data=pipline_data_mlp(dataset_dir=dataset_dir,expansion=expansion,test_size=0)
+    train_data,test_data=pipline_data_mlp(dataset_dir=dataset_dir,expansion=expansion,test_size=args.test_size)
     # 按照比例划分train 和 test数据
     pin_transform=transforms.Compose(
         [
@@ -290,7 +290,10 @@ def main():
 
     # 初始化模型
     encoder_q_model,encoder_k_model=load_model(args.moco_model)# 加载对比模型作为backbone
-    cls_model=WordImageSliceMLPCLS(encoder_model_k=encoder_k_model,encoder_model_q=encoder_q_model,freeze_flag=False)
+    from __init__ import HackResNet
+    #cls_model=WordImageSliceMLPCLS(encoder_model_k=HackResNet(num_classes=128),encoder_model_q=HackResNet(num_classes=128),freeze_flag=False)
+    cls_model=WordImageSliceMLPCLS(encoder_model_k=encoder_q_model,encoder_model_q=encoder_k_model,freeze_flag=False)
+    
     # 加载数据
     train_loader,test_loader=get_dataloader(dataset_dir= args.data,expansion=args.expansion,args=args)
     lr=MYLR(learning_rate=args.lr,cos=args.cos,verbose=True)
