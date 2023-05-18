@@ -11,7 +11,7 @@ PROJECT_DIR= os.path.dirname(
 
 
 def run():
-    reader=easyocr.Reader(["ch_tra"],gpu=False)
+    reader=easyocr.Reader(["ch_tra"],gpu=True)
     BASE_IMAGE_DIR="tmp/project_ocrSentences"
     #DST_IMAGE_DIR="tmp/ocrSentences_resize"
     #width_list=[]
@@ -19,7 +19,7 @@ def run():
         sorted(glob(os.path.join(PROJECT_DIR,BASE_IMAGE_DIR,"*","*.png"),recursive=True))[:100]
         ):
         result=reader.readtext(image_path)
-        print(result)
+        print(image_path,result)
 
 if __name__=="__main__":
     run()
