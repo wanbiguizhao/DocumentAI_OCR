@@ -171,6 +171,8 @@ def image_byte_infer():
                 mid_index=(seg_beg_index+seg_end_index)//2
                 result.append([wip_index,mid_index])
                 wip.origin_image[:,mid_index]=0
+                # 需要提供一个坐标，用来标记汉字的位置。
+            
       
     pil_image=Image.fromarray(wip.origin_image)
     pil_image.show()
