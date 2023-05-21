@@ -247,6 +247,85 @@ class WIPObjDataset(Dataset):
         """
         return len(self.data_list)
 
+class WIPByteDataset(Dataset):
+    """
+    从二进制图片中生成数据集
+    """
+    def __init__(self, image_byte, label_path=None, transform=None):
+        """
+        步骤二：实现 __init__ 函数，初始化数据集，将样本和标签映射到列表中
+        """
+        super(WIPDataset, self).__init__()
+        self.data_list = []
+        self.image_info={
+            "image_path":[],
+            "image":[],
+            "crop_info":[]
+        }
+        
+        #for image_path in tqdm(glob(os.path.join(data_dir,"*","*.png"),recursive=True)[:20]):
+        # 需要重新设计一下数据结构。
+        #nparr = np.from(img_str, np.uint8)
+        image = cv.imdecode(image_byte, cv.IMREAD_GRAYSCALE) # cv2.IMREAD_COLOR in OpenCV 3.1
+        blur = cv.GaussianBlur(image,(5,5),0)
+        ret3,th_image = cv.threshold(blur,0,255,cv.THRESH_BINARY+cv.THRESH_OTSU)
+        h,w=th_image.shape
+        if h>48: # 之后再处理吧
+            # 直接硬做裁剪处理
+            reduce_height=h-48
+            reduce_up_height=reduce_height//2
+            reduce_down_height=reduce_height-reduce_height//2
+            th_image=th_image[reduce_up_height:-reduce_down_height,:]
+            h,w=th_image.shape
+        h_padding=48-h
+        w_padding=(4-w%4)%4
+        top, bottom = h_padding//2, h_padding-(h_padding//2)# 上下部分填充
+        #left,right=w_padding//2,w_padding-(w_padding//2) # 左右部分填充
+        new_image = cv.copyMakeBorder(image, top, bottom, 0, 0,cv.BORDER_CONSTANT, value=(255,))
+
+        self.new_image=new_image
+        
+        for beg,end in splitImage(new_image):
+            self.data_list.append(
+                {
+                    "seg_beg_index":beg,
+                    "seg_end_index":end
+                }
+            )
+        self.transform = transform
+    def __getitem__(self, index):
+        """
+        步骤三：实现 __getitem__ 函数，定义指定 index 时如何获取数据，并返回单条数据（样本数据、对应的标签）
+        """
+        # 根据索引，从列表中取出一个图像
+        seg_image_info = self.data_list[index]
+        seg_beg_index=seg_image_info["seg_beg_index"]
+        seg_end_index=seg_image_info["seg_end_index"]
+
+        seg_image=self.image[:,seg_beg_index:seg_end_index+1]
+        float_seg_image=seg_image.astype('float32')# 变成tensor了。
+        # 读取灰度图
+        # image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+        # # 飞桨训练时内部数据格式默认为float32，将图像数据格式转换为 float32
+        # image = image.astype('float32')
+        # # 应用数据处理方法到图像上
+        if self.transform is not None:
+            image_0,image_1 = self.transform(float_seg_image)
+            return [image_0,image_1,seg_image], 0
+        # # CrossEntropyLoss要求label格式为int，将Label格式转换为 int
+        # #label = int(label)
+        # 返回图像和对应标签
+        return [seg_image,seg_image,seg_image], 0
+
+    def __len__(self):
+        """
+        步骤四：实现 __len__ 函数，返回数据集的样本总数
+        """
+        return len(self.data_list)
+
+
+
+
 class WordImagePiceDatasetOBJ(Dataset):
     """
     直接使用pkl的数据
@@ -355,7 +434,14 @@ def show_word_pice_dataset():
         plt.subplot(1,32,x+1)
         plt.imshow(wip[x+200][0][0])
     plt.show()
-
+def show_image_byte_dataset():
+    #wip=WordImagePiceDatasetOBJ("tmp/constract_image_pice.pkl")
+    wip=WIPObjDataset("tmp/constract_wip_all.pkl")
+    from matplotlib import pyplot as plt
+    for x in range(32):
+        plt.subplot(1,32,x+1)
+        plt.imshow(wip[x+200][0][0])
+    plt.show()
 if __name__=="__main__":
     # from matplotlib import pyplot as plt
     # ds=WordImagePiceDataset(data_dir="tmp/project_ocrSentences")

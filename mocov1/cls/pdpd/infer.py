@@ -128,6 +128,14 @@ def main():
     test_infer(args) 
     #cls_model=load_model()
 
+
+def infer_single_image(image_byte):
+    """
+    输入一张图片：
+    输出：基于图片的输出分割线。
+    """
+    pass 
+
 if __name__ == '__main__':
     with paddle.no_grad():
         #load_dataset_from_image()
