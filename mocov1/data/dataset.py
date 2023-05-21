@@ -255,7 +255,7 @@ class WIPByteDataset(Dataset):
         """
         步骤二：实现 __init__ 函数，初始化数据集，将样本和标签映射到列表中
         """
-        super(WIPDataset, self).__init__()
+        super(WIPByteDataset, self).__init__()
         self.data_list = []
         self.image_info={
             "image_path":[],
@@ -266,7 +266,9 @@ class WIPByteDataset(Dataset):
         #for image_path in tqdm(glob(os.path.join(data_dir,"*","*.png"),recursive=True)[:20]):
         # 需要重新设计一下数据结构。
         #nparr = np.from(img_str, np.uint8)
-        image = cv.imdecode(image_byte, cv.IMREAD_GRAYSCALE) # cv2.IMREAD_COLOR in OpenCV 3.1
+        
+        
+        image = cv.imdecode(np.frombuffer(image_byte,np.uint8), cv.IMREAD_GRAYSCALE) # cv2.IMREAD_COLOR in OpenCV 3.1
         blur = cv.GaussianBlur(image,(5,5),0)
         ret3,th_image = cv.threshold(blur,0,255,cv.THRESH_BINARY+cv.THRESH_OTSU)
         h,w=th_image.shape
@@ -282,8 +284,8 @@ class WIPByteDataset(Dataset):
         top, bottom = h_padding//2, h_padding-(h_padding//2)# 上下部分填充
         #left,right=w_padding//2,w_padding-(w_padding//2) # 左右部分填充
         new_image = cv.copyMakeBorder(image, top, bottom, 0, 0,cv.BORDER_CONSTANT, value=(255,))
-
         self.new_image=new_image
+        self.origin_image=image
         
         for beg,end in splitImage(new_image):
             self.data_list.append(
@@ -302,7 +304,7 @@ class WIPByteDataset(Dataset):
         seg_beg_index=seg_image_info["seg_beg_index"]
         seg_end_index=seg_image_info["seg_end_index"]
 
-        seg_image=self.image[:,seg_beg_index:seg_end_index+1]
+        seg_image=self.new_image[:,seg_beg_index:seg_end_index+1]
         float_seg_image=seg_image.astype('float32')# 变成tensor了。
         # 读取灰度图
         # image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
@@ -436,7 +438,7 @@ def show_word_pice_dataset():
     plt.show()
 def show_image_byte_dataset():
     #wip=WordImagePiceDatasetOBJ("tmp/constract_image_pice.pkl")
-    wip=WIPObjDataset("tmp/constract_wip_all.pkl")
+    wip=WIPByteDataset(open("tmp/project_ocrSentences/1954-01/1954-01_03_007.png","rb").read())
     from matplotlib import pyplot as plt
     for x in range(32):
         plt.subplot(1,32,x+1)
@@ -454,5 +456,5 @@ if __name__=="__main__":
     # time.sleep(10) 
     #pickle_data("tmp/project_ocrSentences",2)
     # show_word_pice()
-    show_word_pice_dataset()
+    show_image_byte_dataset()
     print("10")
