@@ -1,0 +1,4 @@
+datasets
+transformers[torch]
+tokenizers
+protobuf==3.20
