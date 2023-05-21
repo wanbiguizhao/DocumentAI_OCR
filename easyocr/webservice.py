@@ -20,6 +20,25 @@ class NpEncoder(json.JSONEncoder):
             return obj.tolist()
         return super(NpEncoder, self).default(obj)
 reader=easyocr.Reader(["ch_tra"],gpu=False)
+@app.route("/det",methods = ['GET', 'POST'])
+def detect():
+    if request.method =="POST":
+      image_bytes = request.files['file'].read()
+      result=reader.detect(image_bytes)
+      print(result)
+      return jsonify(json.loads(json.dumps(result,cls=NpEncoder)))
+    html="""
+    <html>
+    <body>
+      <form action = "/det" method = "POST" 
+         enctype = "multipart/form-data">
+         <input type = "file" name = "file" />
+         <input type = "submit"/>
+      </form>   
+    </body>
+    </html>
+    """
+    return html 
 @app.route("/",methods = ['GET', 'POST'])
 def hello_world():
     if request.method =="POST":
