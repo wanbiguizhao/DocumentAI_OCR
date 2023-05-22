@@ -89,7 +89,7 @@ def fast_infer():
             transforms.ToTensor(),
             normalize,
         ]
-    model_ds=WIPDataset(data_dir="tmp/project_ocrSentences_dataset/195",transform=TwoCropsTransform(transforms.Compose(augmentation)))#这个是模型使用，要对数据做一些变化。
+    model_ds=WIPDataset(data_dir="tmp/project_ocrSentences_dataset/1954",transform=TwoCropsTransform(transforms.Compose(augmentation)))#这个是模型使用，要对数据做一些变化。
     train_loader = DataLoader(
             model_ds,
             batch_size=256,
@@ -157,7 +157,8 @@ def image_byte_infer():
         )
     cls_model=load_model()
     result=[]
-    for k, (images, _) in enumerate(train_loader):    
+    for k, (images, _) in enumerate(train_loader):  
+        print(type(images[0]))  
         predict_info=cls_model(images[0])
 
         predict_labels=paddle.argmax(predict_info,axis=-1)# 预测的每个图片切片的类型。
@@ -193,5 +194,5 @@ def infer_single_image(image_byte):
 if __name__ == '__main__':
     with paddle.no_grad():
         #load_dataset_from_image()
-        #fast_infer()
-        image_byte_infer()
+        fast_infer()
+        #image_byte_infer()

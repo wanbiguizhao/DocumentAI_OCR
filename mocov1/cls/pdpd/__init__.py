@@ -14,9 +14,9 @@ def append_path():
 append_path()
 sys.path.append(PROJECT_DIR)
 sys.path.append(PROJECT_DIR+"/mocov1")
+print("??")
 from mocov1.pp_infer import load_model
 from mocov1.moco.resnetmodels import HackResNet
-
 
 from visualdl import LogWriter
 
