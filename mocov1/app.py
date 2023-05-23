@@ -107,10 +107,10 @@ def det_image(image_bytes,batch_size=256):
             else:
                 pass 
         pre_pixel_index=pixel_index
-    from PIL import Image 
-
-    pil_image=Image.fromarray(wip.origin_image)
-    pil_image.show()
+    # from PIL import Image 
+    
+    # pil_image=Image.fromarray(wip.origin_image)
+    # pil_image.show()
 
 
     return word_list
@@ -139,4 +139,8 @@ def hello_world():
 # flask  --debug --app mocov1/app run
 
 if __name__=="__main__":
-    det_image(open("tmp/project_ocrSentences/1954-01/1954-01_03_007.png","rb").read())
+    app.run(
+        host="0.0.0.0",
+        port="8088",
+        debug=True
+    )

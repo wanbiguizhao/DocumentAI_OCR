@@ -19,7 +19,7 @@ class NpEncoder(json.JSONEncoder):
         if isinstance(obj, np.ndarray):
             return obj.tolist()
         return super(NpEncoder, self).default(obj)
-reader=easyocr.Reader(["ch_tra"],gpu=False)
+reader=easyocr.Reader(["ch_tra"],gpu=True)
 @app.route("/det",methods = ['GET', 'POST'])
 def detect():
     if request.method =="POST":

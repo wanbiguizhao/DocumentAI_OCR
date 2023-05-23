@@ -1,0 +1,29 @@
+{
+    "image_name":"image_path",
+    "image_path":"",
+    "ocr_areas":[
+        {
+            "id":"",
+            "x":"",
+            "y":"",
+            "width":"",
+            "height":"",
+            "value":{
+                "text":[],
+                "score":0.1
+            },
+            "words":[
+                {
+                    "id":"",
+                    "x":"",
+                    "y":"",
+                    "width":"",
+                    "height":"在这个基础纸上再做ocr吧，看一下能不能提升" 
+
+                }
+            ]
+
+
+        }
+    ]
+}
