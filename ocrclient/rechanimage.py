@@ -15,60 +15,13 @@ import numpy as np
 import shutil
 import uuid
 import json
-#from paddleocr import PaddleOCR
-# paddleocr = PaddleOCR(
-#     det=False,
-#     rec=True,
-#     lang="chinese_cht",
-#     cls=False
-# ) 
-os.environ.setdefault("REDIS_OM_URL","redis://:wwheqq@0.0.0.0:6379")
+
+
 
 easyocr_reader =easyocr.Reader(["ch_tra"],gpu=True) 
 import datetime
-from typing import Optional
 
-from pydantic import EmailStr
 
-from redis_om import (
-    Field,
-    HashModel,
-    Migrator
-)
-class HanImageInfo(HashModel):
-    uuid: str  = Field(index=True)
-    image_path: str
-    h: int
-    w: int
-    bad: Optional[int]
-    easyocr:int= Field(index=True,default=0)
-    easyocr_pk: Optional[str]
-    paddleocr:int= Field(index=True,default=0)
-    paddleocr_pk: Optional[str]
-class easyocrResultData(HashModel):
-    image_uuid:str= Field(index=True)
-    score: float
-    text: str
-    text_len: int
-class paddleocrResultData(HashModel):
-    image_uuid:str= Field(index=True)
-    score: float
-    text: str
-    text_len: int
-
-def rec_han_paddleocr(img_path,times):
-    """
-    当前一个字是一张图片，CTC识别单字准确率低
-    img_path 图片的路径
-    times 一个图片水平复制的次数
-    """
-    current_img=cv.imread(img_path)
-    # hc,wc,_=current_img.shape
-    # newImg=np.zeros((hc,wc*times,3),dtype=current_img.dtype)
-    # for i in range(times):
-    #     newImg[:,wc*i:wc*(i+1),]=current_img.copy()
-    ocr_result=paddleocr.ocr(current_img,cls=False)
-    return ocr_result 
 def rec_han_easyocr(img_path):
     """
     当前一个字是一张图片，CTC识别单字准确率低
@@ -84,14 +37,7 @@ def rec_han_easyocr(img_path):
     print(ocr_result)    
     return ocr_result
 
-JSON_DATA_PATH="tmp/0ocrdata/"
-JSON_DATA_PATH="tmp/0ocrdata/data.json"
-def dump_json_data(json_data,json_file_path):
-    with open(json_file_path,"w") as ocr_data_file:
-        json.dump(json_data,ocr_data_file,ensure_ascii=False,indent=2)
-def load_json_data(json_file_path):
-    with open(json_file_path,"r") as ocr_data_file:
-        return json.load(ocr_data_file)
+
 
 
 def get_all_han_image(base_image_dir,pattern):
@@ -115,6 +61,8 @@ def get_all_han_image(base_image_dir,pattern):
         )
         image_info.save()
 import time
+from redisdata import *
+
 def use_easyocr():
     Migrator().run()
     while HanImageInfo.find(HanImageInfo.easyocr==0).count()>0:
@@ -185,30 +133,7 @@ def use_easyocr_batch():
                 image_info_list[index].save()
         count=HanImageInfo.find(HanImageInfo.easyocr==0).count()
         print(count)
-def read_data_from_redis():
-    # 从redis中拿到识别的数据
-    # 找到字符长度为1，并且正确率达到80以上的。
-    han_image_ocr_info=defaultdict(list)
-    image_dict_info=load_json_data(JSON_DATA_PATH)
-    ocr_count=0
-    usefull_ocr_count=0
-    for image_uuid in tqdm(image_dict_info.keys()):
-        ocr_data=easyocrResultData.find(easyocrResultData.image_uuid==image_uuid).all()
-        if len(ocr_data)==0:
-            continue 
-        ocr_count+=1
-        ocr_data=ocr_data[0]
-        if ocr_data.score>0.50 and ocr_data.text_len==1 :
-            usefull_ocr_count+=1
 
-            han_image_ocr_info[ocr_data.text].append(
-                [
-                    ocr_data.score,image_uuid
-                ]
-            )
-    print(ocr_count,
-        len(han_image_ocr_info.keys()),usefull_ocr_count
-    )
 
 def pipe_line01():
     # 找打某个图片
