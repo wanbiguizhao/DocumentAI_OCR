@@ -148,7 +148,7 @@ def use_easyocr():
 def use_easyocr_batch():
     import requests
     def easyocr_webservice(image_path_list):
-        colab_url="https://ff41-34-90-68-225.ngrok-free.app/batch"
+        colab_url="http://ac92-34-90-68-225.ngrok-free.app/batch"
         image_list=[]
         for image_path in image_path_list: 
             image_list.append(("image",open(image_path, 'rb')))

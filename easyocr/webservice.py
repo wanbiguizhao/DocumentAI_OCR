@@ -48,10 +48,13 @@ def batch_detect():
       image_list=request.files.getlist("image")
       for image_data in image_list:
           #image_data[0] str name ;image_data[1] image byte ; 
-          print(image_data.filename)
-          image_bytes=image_data.read()
-          result=reader.readtext(image_bytes)
-          result_list.append(result)
+          #print(image_data.filename)
+          try:
+            image_bytes=image_data.read()
+            result=reader.readtext(image_bytes)
+            result_list.append(result)
+          except :
+            result_list.append([])
       #result=reader.detect(image_bytes)
       print(len(image_list),len(result_list))
       return jsonify(json.loads(json.dumps(result_list,cls=NpEncoder)))
