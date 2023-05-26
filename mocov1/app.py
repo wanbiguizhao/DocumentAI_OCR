@@ -18,13 +18,13 @@ def load_model():
     encoder_q_model=HackResNet(num_classes=128)
     # encoder_k_model.set_state_dict(paddle.load("tmp/checkpoint/epoch_105_encoder_k_model.pdparams"))
     # encoder_q_model.set_state_dict(paddle.load("tmp/checkpoint/epoch_105_encoder_q_model.pdparams"))
-    encoder_k_model.set_state_dict(paddle.load("tmp/nobackbone/epoch_030_encoder_k_model.pdparams"))
-    encoder_q_model.set_state_dict(paddle.load("tmp/nobackbone/epoch_030_encoder_k_model.pdparams"))
+    encoder_k_model.set_state_dict(paddle.load("tmp/nobackbone/epoch_020_encoder_k_model.pdparams"))
+    encoder_q_model.set_state_dict(paddle.load("tmp/nobackbone/epoch_020_encoder_k_model.pdparams"))
     cls_model=WordImageSliceMLPCLS(encoder_model_k=encoder_k_model,encoder_model_q=encoder_q_model,freeze_flag=True)
-    cls_model.set_state_dict(paddle.load("tmp/nobackbone/epoch_030_model.pdparams"))
+    cls_model.set_state_dict(paddle.load("tmp/nobackbone/epoch_020_model.pdparams"))
     return cls_model
 cls_model=load_model()
-
+cls_model.eval()
 app = Flask(__name__)
 class NpEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -107,6 +107,8 @@ def det_image(image_bytes,batch_size=256):
             else:
                 pass 
         pre_pixel_index=pixel_index
+    if han_appear_flag:
+        word_list.append([han_beg_index,pixel_index])
     # from PIL import Image 
     
     # pil_image=Image.fromarray(wip.origin_image)
@@ -142,5 +144,5 @@ if __name__=="__main__":
     app.run(
         host="0.0.0.0",
         port="8088",
-        debug=True
+        debug=False
     )

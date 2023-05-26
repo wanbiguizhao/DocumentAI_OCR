@@ -283,7 +283,7 @@ class WIPByteDataset(Dataset):
         w_padding=(4-w%4)%4
         top, bottom = h_padding//2, h_padding-(h_padding//2)# 上下部分填充
         #left,right=w_padding//2,w_padding-(w_padding//2) # 左右部分填充
-        new_image = cv.copyMakeBorder(image, top, bottom, 0, 0,cv.BORDER_CONSTANT, value=(255,))
+        new_image = cv.copyMakeBorder(image, top, bottom, 0, 16,cv.BORDER_CONSTANT, value=(255,))
         self.new_image=new_image
         self.origin_image=image
         

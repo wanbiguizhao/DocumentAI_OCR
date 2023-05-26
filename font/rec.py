@@ -13,12 +13,12 @@ import glob
 from PIL import Image
 import numpy as np
 import shutil
-# ocr = PaddleOCR(
-#     det=False,
-#     rec=True,
-#     lang="chinese_cht",
-#     cls=False
-# )  
+ocr = PaddleOCR(
+    det=False,
+    rec=True,
+    lang="chinese_cht",
+    cls=False
+)  
 # DEBUG=True
 # image_path="/home/liukun/ocr/DocumentAI_OCR/tmp/wordpics/000001/000002.png"
 # pre_image_path=""
