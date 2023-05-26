@@ -72,7 +72,7 @@ def pipwork02():
     for filesdir in tqdm(os.listdir(base_data_dir)):
         seg_hand_data(os.path.join(base_data_dir,filesdir))
 def pipwork03():
-    #把识别出来的汉字画出来
+    #指定文件夹的png图片找到，找到汉字，并且用矩形标记
     base_data_dir="easyocr/tmp/ocr_data/"
     for filesdir in tqdm(os.listdir(base_data_dir)):
         draw_rect(os.path.join(base_data_dir,filesdir))
@@ -155,12 +155,16 @@ def seg_hand_data(data_dir="easyocr/tmp/ocr_data/1954-02_13"):
 
 
 def do_ocr(image_path):
-    files = {'file': open(image_path, 'rb')}
+    files = [ ( "image",open(image_path, 'rb')),  ( "image",open(image_path, 'rb'))]
+    colab_url="http://127.0.0.1:5000/batch"
     model_results = requests.post(
             colab_url,files=files
         )
-    h_bbox_list,v_bbox_list=model_results.json()
-    return 
+    print(model_results)
+    return
+    ocrdata=model_results.json()
+    print(ocrdata)
+    return
     img=Image.open(files['file'])
     for rect in h_bbox_list[0]:
         xu,xd,yu,yd=rect
@@ -177,12 +181,13 @@ def do_ocr_det(image_path):
     h_bbox_list,v_bbox_list=model_results.json()
 
 def test_do_ocr():
-    image_path="tmp/images/1955-12/0.png"
+    image_path="tmp/word2imgtop10/@爲/219379.png"
     do_ocr(image_path)
 
 #test_do_ocr()
 
 
 if __name__=="__main__":
-    #pipwork02()
-    pipwork03()
+    test_do_ocr()
+    # pipwork02()
+    # pipwork03()

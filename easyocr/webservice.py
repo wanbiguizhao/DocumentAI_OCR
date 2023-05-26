@@ -39,6 +39,34 @@ def detect():
     </html>
     """
     return html 
+@app.route("/batch",methods = ['GET', 'POST'])
+def batch_detect():
+    if request.method =="POST":
+      
+      result_list=[]
+      print(request.files)
+      image_list=request.files.getlist("image")
+      for image_data in image_list:
+          #image_data[0] str name ;image_data[1] image byte ; 
+          print(image_data.filename)
+          image_bytes=image_data.read()
+          result=reader.readtext(image_bytes)
+          result_list.append(result)
+      #result=reader.detect(image_bytes)
+      print(len(image_list),len(result_list))
+      return jsonify(json.loads(json.dumps(result_list,cls=NpEncoder)))
+    html="""
+    <html>
+    <body>
+      <form action = "/batch" method = "POST" 
+         enctype = "multipart/form-data">
+         <input type = "file" name = "file" />
+         <input type = "submit"/>
+      </form>   
+    </body>
+    </html>
+    """
+    return html
 @app.route("/",methods = ['GET', 'POST'])
 def hello_world():
     if request.method =="POST":
@@ -58,3 +86,5 @@ def hello_world():
     </html>
     """
     return html
+if __name__ == "__main__":
+    app.run()
