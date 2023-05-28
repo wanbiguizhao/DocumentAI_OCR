@@ -9,7 +9,7 @@ import cv2 as  cv
 from tqdm import tqdm
 
 import easyocr
-import glob
+from glob import glob
 from PIL import Image
 import numpy as np
 import shutil
@@ -148,6 +148,49 @@ def pipe_analy_easyocr():
     read_data_from_redis()
     pass 
 
+
+def test_cg_infer_image():
+    image_list=sorted(glob("/home/liukun/gan/cg-gan-custom/tmp/infer_images/*.png"))
+    count=0
+    index=0
+    while index+1<len(image_list):
+        pre_data=easyocr_reader.recognize(image_list[index],reformat=True)
+        ocr_result=easyocr_reader.recognize(image_list[index+1],reformat=True)
+        if ocr_result[0][1]==pre_data[0][1] :
+            print("==="*5)
+            print(image_list[index+1],ocr_result[0][1:] )
+            print(image_list[index],pre_data[0][1:])
+            count+=1
+        else:
+            if ocr_result[0][2]>0.3:
+                print("==="*5)
+                print(image_list[index+1],ocr_result[0][1:] )
+                print(image_list[index],pre_data[0][1:])
+        index+=2
+    print(count*2.0/len(image_list))
+
+easyocr_reader =easyocr.Reader(["ch_tra"],gpu=True) 
+def ocr_infer_images():
+    basic_infer_dir="tmp/infer_images"
+    for uuid_image_dir in tqdm(os.listdir(basic_infer_dir)):
+        file_list= os.listdir(f"{basic_infer_dir}/{uuid_image_dir}")
+        if len(file_list)!=2:
+           continue
+        xfile=file_list[0]
+        ocr_data={
+            "easyocr":{
+                file_list[0]:easyocr_reader.recognize(f"{basic_infer_dir}/{uuid_image_dir}/{file_list[0]}",reformat=True),
+                file_list[1]:easyocr_reader.recognize(f"{basic_infer_dir}/{uuid_image_dir}/{file_list[1]}",reformat=True)
+            }
+        }
+        with open(f"{basic_infer_dir}/{uuid_image_dir}/ocr.json","w") as jsonf:
+            json.dump(ocr_data,jsonf,ensure_ascii=False,indent=2)
+
+
+
 if __name__=="__main__":
-    pipe_line01()
-    pipe_analy_easyocr()
+    #pipe_line01()
+    #pipe_analy_easyocr()
+    #test_cg_infer_image()
+    #ocr_infer_images()
+    pass
