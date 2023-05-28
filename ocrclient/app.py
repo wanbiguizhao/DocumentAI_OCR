@@ -6,16 +6,20 @@ import os
 PROJECT_DIR=  os.path.dirname(os.path.dirname(os.path.realpath( __file__)))
 template_dir = os.path.join(PROJECT_DIR,"ocrclient/template")
 app = Flask(__name__, template_folder=template_dir)
-app.config['UPLOAD_FOLDER']=PROJECT_DIR
-app.config['STATIC_FOLDER'] = PROJECT_DIR
+# app.config['UPLOAD_FOLDER']=PROJECT_DIR
+#app.config['STATIC_FOLDER'] = os.path.join(PROJECT_DIR,"ocrclient/static")
 
 from flask import send_from_directory
+
 @app.route('/tmp/<path:path>')
 def send_tmp_report(path):
     return send_from_directory(f"{PROJECT_DIR}/tmp", path)
 @app.route('/easyocr/<path:path>')
 def send_easyocr_report(path):
     return send_from_directory(f"{PROJECT_DIR}/easyocr", path)
+@app.route('/static/<path:path>')
+def send_static_report(path):
+    return send_from_directory(f"{PROJECT_DIR}/ocrclient/static", path)
 def load_data():
     han_dict=defaultdict(list)
     with open("image_top_score_info.txt","r") as df:
