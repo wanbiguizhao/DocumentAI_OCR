@@ -5,7 +5,7 @@ import os
 from tqdm import tqdm
 os.environ.setdefault("REDIS_OM_URL","redis://:wwheqq@0.0.0.0:6379")
 from config import load_json_data,JSON_DATA_PATH
-from typing import Optional
+from typing import Any, Optional
 from pydantic import EmailStr
 from redis_om import get_redis_connection
 
@@ -18,7 +18,8 @@ def is_contains_chinese(strs):
 from redis_om import (
     Field,
     HashModel,
-    Migrator
+    Migrator,
+    JsonModel
 )
 class HanImageInfo(HashModel):
     uuid: str  = Field(index=True)
@@ -46,11 +47,34 @@ class hanResultData(HashModel):
     score: float= Field(index=True,sortable=True)
     from_ocr:str=Field(index=True)
     text: str=Field(index=True)# 汉字要是一个唯一的索引。
-    cg_gan_text:str=Field(index=True,default="") # cg gan 识别的文字
-    cg_gan_score:str=Field(index=True,default=-1.0,sortable=True)# cg gan 识别的分数。
-
+    cg_gan_text:str=Field(index=True,default="") # cg gan 识别的文字,这里先直接使用print2write的数据。
+    cg_gan_score:float=Field(index=True,default=-1.0,sortable=True)# cg gan 识别的分数。
+    cg_gan_origin_text:str=Field(index=True,default="") # cg gan 识别的文字,这里先直接使用print2write的数据。这里使用的是
+    cg_gan_origin_score:float=Field(index=True,default=-1.0,sortable=True)# cg gan 识别的分数。
+    # def __init__(self, **data: Any) -> None:
+    #     super().__init__(**data)
+    #     text_dict=defaultdict(float)
+    #     text_dict[text]+=self.score
+    #     text_dict[self.cg_gan_origin_text]=text_dict[self.cg_gan_origin_text]+self.cg_gan_origin_score*0.5
+    #     text_dict[self.cg_gan_text]+=self.cg_gan_score
     def info(self):
-        return f"{self.text}\t{self.score}\t{self.from_ocr}\t{self.get_image_path()}"
+        return f"{self.text}\t{self.score}\t{self.from_ocr}\t{self.get_image_path()}\t{self.image_uuid}"
+    def get_image_path(self):
+        return HanImageInfo.find(HanImageInfo.uuid==self.image_uuid).first().image_path
+    def get_text_score_dict(self):
+        text_dict=defaultdict(float)
+        text_dict[self.text]+=self.score
+        text_dict[self.cg_gan_origin_text]=text_dict[self.cg_gan_origin_text]+self.cg_gan_origin_score*0.5
+        text_dict[self.cg_gan_text]+=self.cg_gan_score
+        return text_dict
+        
+class tempHanImage(HashModel):
+    # ocr 识别的汉字个数是1的数据,放到数据库中进行分析
+    image_uuid:str= Field(index=True)
+    score: float= Field(index=True,sortable=True)
+    text:str=Field(index=True)
+    def info(self):
+        return f"{self.text}\t{self.score}\t{self.image_uuid}\t{self.get_image_path()}"
     def get_image_path(self):
         return HanImageInfo.find(HanImageInfo.uuid==self.image_uuid).first().image_path
 class hanData(HashModel):
@@ -119,22 +143,23 @@ def get_han_from_dir():
     han_set=set()
     for dirname in os.listdir("tmp/word2imgtop10"):
         han=dirname.split("@")[-1]
-        if is_contains_chinese(han):
+        if is_contains_chinese(han) and len(os.listdir(f"tmp/word2imgtop10/{dirname}"))>=10:# 超过10个图片
+        
             han_set.update(han)
     return han_set
 
 
-def getallHan(n=10):
+def getallHan(n=5):
     # 根据汉字的分数拿到从高到底的汉字对应图片
     print("han count:",hanData.find().count()) 
     all_han_data=hanData.find().all()
     dir_han_set=get_han_from_dir()
-    record_file=open("image_low_score_info.txt","w")
+    record_file=open("image_top_score_info.txt","w")
     for han in all_han_data:
         if "##" not in han.han and han.han not in dir_han_set:
             #han.count=hanResultData.find(hanResultData.text==han.han).count()
             # han.save()
-            han_data_list=hanResultData.find(hanResultData.text==han.han).sort_by("-score").page(0,1)
+            han_data_list=tempHanImage.find(tempHanImage.text==han.han).sort_by("-score").page(0,n)
             for han_data in han_data_list:
                 record_file.write(han_data.info()+"\n")
         # else:
@@ -198,16 +223,99 @@ def read_data_from_redis():
 def pipe_read_data():
     read_data_from_redis()
 
+def dump_han_ocr_data():
+    #从hanResultData检索图片对应的最有可能的汉字，然后打印出来信息。
+    image_dict_info=load_json_data(JSON_DATA_PATH)
+    record_file=open("image_ocr_info.txt","w")
+    for image_uuid in tqdm(image_dict_info.keys()):
+        ocr_data=hanResultData.find(hanResultData.image_uuid==image_uuid).sort_by("-score").all()
+        if len(ocr_data)>0:
+            ocr_data=ocr_data[0]
+            record_file.write(ocr_data.info()+"\n")
+    record_file.close()
+def use_cg_gan_ocr_data():
+    # 使用cggan生成的数据进行数据分析。
+    Migrator().run()
+    basic_infer_dir="tmp/infer_images"
+    for uuid_image_dir in tqdm(os.listdir(basic_infer_dir)):
+        if os.path.exists(f"{basic_infer_dir}/{uuid_image_dir}/ocr.json"):
+            easy_ocr=load_json_data(f"{basic_infer_dir}/{uuid_image_dir}/ocr.json")
+            ocr_data=hanResultData.find(hanResultData.image_uuid==uuid_image_dir,hanResultData.from_ocr=="easyocr").all()
+            if len(ocr_data)==1:
+                ocr_data=ocr_data[0]
+                for k,v in easy_ocr["easyocr"].items():
+                    if "_img_print.png" in k:
+                        #print(easy_ocr["easyocr"][k][0][1],easy_ocr["easyocr"][k][0][2],k,"origin_text")
+                        ocr_data.cg_gan_origin_text=easy_ocr["easyocr"][k][0][1]
+                        ocr_data.cg_gan_origin_score=easy_ocr["easyocr"][k][0][2]
+                    else:
+                        #print(easy_ocr["easyocr"][k][0][1],easy_ocr["easyocr"][k][0][2],k,"text")
+                        ocr_data.cg_gan_text=easy_ocr["easyocr"][k][0][1]
+                        ocr_data.cg_gan_score=easy_ocr["easyocr"][k][0][2]
+                ocr_data.save()
+            # key1=easy_ocr["easyocr"].keys()[0],key2=easy_ocr["easyocr"].keys()[1]
+            # if "_img_print.png" in key1:
+            #     print(easy_ocr["easyocr"][key1][0][1],key1,"origin_text")
+            #     print(easy_ocr["easyocr"][key2][0][1],key2,"text")
+        if os.path.exists(f"{basic_infer_dir}/{uuid_image_dir}/pocr.json"):
+            paddle_ocr=load_json_data(f"{basic_infer_dir}/{uuid_image_dir}/pocr.json")
+            ocr_data=hanResultData.find(hanResultData.image_uuid==uuid_image_dir,hanResultData.from_ocr=="paddleocr").all()
+            if len(ocr_data)==1:
+                ocr_data=ocr_data[0]
+                for k,v in paddle_ocr["paddleocr"].items():
+                    if "_img_print.png" in k:
+                        #print(paddle_ocr["paddleocr"][k][0][0][0],paddle_ocr["paddleocr"][k][0][0][1],k,"origin_text")
+                        ocr_data.cg_gan_origin_text=paddle_ocr["paddleocr"][k][0][0][0]
+                        ocr_data.cg_gan_origin_score=paddle_ocr["paddleocr"][k][0][0][1]
+                    else:
+                        #print(paddle_ocr["paddleocr"][k][0][0][0],paddle_ocr["paddleocr"][k][0][0][1],k,"text")
+                        ocr_data.cg_gan_text=paddle_ocr["paddleocr"][k][0][0][0]
+                        ocr_data.cg_gan_score=paddle_ocr["paddleocr"][k][0][0][1]
+                ocr_data.save()
 
-def pipline_template_topn():
+
+
+def analysis_hanResultData():
+    # 分析数据hanResultData 找到所有的汉字
     """
     把汉字中，展示最好的10个图片，
     """
+    Migrator().run()
+    han_set=set()
+    image_dict_info=load_json_data(JSON_DATA_PATH)
+    for image_uuid in tqdm(image_dict_info.keys()):
+        ocr_data_list=hanResultData.find(hanResultData.image_uuid==image_uuid).sort_by("-score").all()
+        han_score_dict=defaultdict(float)# 拿到一张图片对应的所有的结果
+        if len(ocr_data_list)>0:
+            for ocr_data in ocr_data_list:
+                for k,v in ocr_data.get_text_score_dict().items():
+                    han_score_dict[k]+=v 
+        #score_han_list=ocr_data.get_top_text()
 
+        for han,score in han_score_dict.items():
+            if score<0.5 or not is_contains_chinese(han):
+                continue
+            han_set.update(han)
+            if tempHanImage.find(tempHanImage.image_uuid==image_uuid,tempHanImage.text==han,tempHanImage.score==score).count()==0:
+                tempHanImage(
+                    image_uuid=image_uuid,
+                    text=han,
+                    score=score
+                ).save()    
+    print(len(han_set))
+
+def dump_han_top10score_tempHanImage():
+    pass 
+
+
+
+def pipline_template_topn():
     pass 
 if __name__=="__main__":
     os.environ.setdefault("REDIS_OM_URL","redis://:wwheqq@0.0.0.0:6379")
+    #use_cg_gan_ocr_data()
     #move_usefull_ocr_data()
     #getTopNHan("群")
-    #getHanByCount()
+    #getallHan()
+    analysis_hanResultData()
     getallHan()
