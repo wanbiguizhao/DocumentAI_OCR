@@ -51,12 +51,6 @@ class hanResultData(HashModel):
     cg_gan_score:float=Field(index=True,default=-1.0,sortable=True)# cg gan 识别的分数。
     cg_gan_origin_text:str=Field(index=True,default="") # cg gan 识别的文字,这里先直接使用print2write的数据。这里使用的是
     cg_gan_origin_score:float=Field(index=True,default=-1.0,sortable=True)# cg gan 识别的分数。
-    # def __init__(self, **data: Any) -> None:
-    #     super().__init__(**data)
-    #     text_dict=defaultdict(float)
-    #     text_dict[text]+=self.score
-    #     text_dict[self.cg_gan_origin_text]=text_dict[self.cg_gan_origin_text]+self.cg_gan_origin_score*0.5
-    #     text_dict[self.cg_gan_text]+=self.cg_gan_score
     def info(self):
         return f"{self.text}\t{self.score}\t{self.from_ocr}\t{self.get_image_path()}\t{self.image_uuid}"
     def get_image_path(self):
