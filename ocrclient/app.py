@@ -44,46 +44,45 @@ def render_han_image():
     #     autoescape=select_autoescape()
     # )
     # template = env.get_template("ocrclient/template/image_han_talbe.html")
-    t=open("0t.txt","w")
-    t.write("12")
-    t.close()
     table_list=[]# 存儲多個表
     han_dict=load_data()
     table_col_num=40# 一個表有20列
 
     key_list=sorted(han_dict.keys(),key=lambda x: -len(han_dict[x]))# 做了排序，可以保證先看到多的圖片
-
+    default_value=-1
     beg=0
-    while beg+table_col_num<len(key_list):
+    han_image_dict=defaultdict(list)
+    if beg+table_col_num<len(key_list):
         th_list=key_list[beg:beg+table_col_num]
-        table_data=[]
-        row_index=0
-        while row_index<10:
-            if row_index>=len(han_dict[th_list[0]]):#一個漢字對應的圖片個數，因爲是長度進行了排序，所以第一列就是最大長度
+    else:
+        th_list=key_list[beg:]
+    table_data=[]
+    row_index=0
+    while row_index<10:
+        if row_index>=len(han_dict[th_list[0]]):#一個漢字對應的圖片個數，因爲是長度進行了排序，所以第一列就是最大長度
+            break
+        table_row=[]
+        for ci in range(table_col_num):
+            han_key=th_list[ci]
+            han_data=han_dict[han_key]
+            if row_index>=len(han_data):
                 break
-            table_row=[]
-            for ci in range(table_col_num):
-                han_key=th_list[ci]
-                han_data=han_dict[han_key]
-                if row_index>=len(han_data):
-                    break
-                table_row.append(
-                    han_data[row_index]
-                )
-            table_data.append(table_row)
-            row_index+=1
-        if beg>len(key_list)-100:
-            table_list.append(
-                {
-                    "th_list":th_list,
-                    "table_data":table_data,
-                }
+            han_image_dict[han_data[row_index]["image_uuid"]].append([ han_key,default_value] )# 大致的数据结构是某一张图片，对应的数据结构[汉字，状态] ，状态-1表示错，0对，2是错
+            table_row.append(
+                han_data[row_index]
             )
-        beg+=table_col_num
-    #html_data=template.render(table_list=table_list)
-    return render_template("image_han_talbe.html",table_list=table_list)
-    with open("image_han_talbe.html.html.html",'w') as ith:
-        ith.write(html_data)
+        table_data.append(table_row)
+        row_index+=1
+    table_list.append(
+        {
+            "han_image_dict":{},
+            "th_list":th_list,
+            "table_data":table_data,
+        }
+    )
+
+    return render_template("image_han_talbe.html",han_image_dict=han_image_dict,default_value=default_value,table_list=table_list)
+
 
 
 if __name__=="__main__":

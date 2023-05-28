@@ -72,7 +72,7 @@
         print(args,kws)
 </py-script>
 <script>
-
+    var han_image_dict = {{han_image_dict|tojson}};
     var han_states=["√","×"]
     function img_click(object){
         //Bind a variable whose name is the string variableName
@@ -141,7 +141,7 @@
             <tr height="10">  
                 {% for col in row %}
                 {% set col_loop = loop %}
-                <td name="td-{{table_loop.index}}-{{loop.index}}" id="td-{{table_loop.index}}-{{row_loop.index}}-{{loop.index}}" han="{{col['han']}}"  image_uuid="{{col['image_uuid']}}" onclick="img_td_click(this)" font-size="5px" value="-1">0</td>
+                <td name="td-{{table_loop.index}}-{{loop.index}}" id="td-{{table_loop.index}}-{{row_loop.index}}-{{loop.index}}" han="{{col['han']}}"  image_uuid="{{col['image_uuid']}}" onclick="img_td_click(this)" font-size="5px" value="{{default_value}}">0</td>
                 {% endfor %}
             </tr>
         {% endfor %}
