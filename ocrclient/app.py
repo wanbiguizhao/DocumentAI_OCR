@@ -67,7 +67,7 @@ def render_han_image():
             han_data=han_dict[han_key]
             if row_index>=len(han_data):
                 break
-            han_image_dict[han_data[row_index]["image_uuid"]].append([ han_key,default_value] )# 大致的数据结构是某一张图片，对应的数据结构[汉字，状态] ，状态-1表示错，0对，2是错
+            han_image_dict[han_data[row_index]["image_uuid"]].extend([ han_key,default_value] )# 大致的数据结构是某一张图片，对应的数据结构[汉字，状态] ，状态-1表示错，0对，2是错
             table_row.append(
                 han_data[row_index]
             )

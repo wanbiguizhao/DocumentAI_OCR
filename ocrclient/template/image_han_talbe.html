@@ -73,13 +73,24 @@
 </py-script>
 <script>
     var han_image_dict = {{han_image_dict|tojson}};
-    var han_states=["√","×"]
+</script>    
+<script>
+    var han_states=["√","×"];
+    function update_han_status(object){
+        //设置图片对应汉字的状态
+        value=parseInt(object.getAttribute("value"))
+        image_uuid=object.getAttribute("image_uuid")
+        //console.log("===")
+        //console.log(han_image_dict[image_uuid])
+        han_image_dict[image_uuid][1]=value
+        //console.log(han_image_dict[image_uuid])
+    }
     function img_click(object){
         //Bind a variable whose name is the string variableName
         // to the object called 'object'
-        console.log(object.getAttribute("han"));
-        console.log(object.getAttribute("image_uuid"));
-        console.log(object.getAttribute("tid"));
+        //console.log(object.getAttribute("han"));
+        //console.log(object.getAttribute("image_uuid"));
+        //console.log(object.getAttribute("tid"));
         td = document.getElementById(object.getAttribute("tid"));
         value=parseInt(td.getAttribute("value"));
         if (value<0){
@@ -88,12 +99,13 @@
         value=(value+1)%2
         td.setAttribute("value", value);
         td.textContent= han_states[value];
+        update_han_status(td);
         //eval(execString)
     }
     function img_td_click(object){
         //Bind a variable whose name is the string variableName
         // to the object called 'object'
-        console.log(object.getAttribute("value"));
+        //console.log(object.getAttribute("value"));
         value=parseInt(object.getAttribute("value"));
         if (value<0){
             value=1
@@ -101,21 +113,22 @@
         value=(value+1)%2
         object.setAttribute("value", value);
         object.textContent= han_states[value];
+        update_han_status(object);
         //eval(execString)
     }
     function th_click(object){
         //Bind a variable whose name is the string variableName
         // to the object called 'object'
-        console.log(object.getAttribute("tdname"));
-        console.log(object.getAttribute("value"));
+        //console.log(object.getAttribute("tdname"));
+        //console.log(object.getAttribute("value"));
         value=parseInt(object.getAttribute("value"))
         var td_list = document.getElementsByName(object.getAttribute("tdname"));
-        console.log(td_list)
+        //console.log(td_list)
         for (let i = 0; i < td_list.length; i++){
-            console.log(td_list[i],td_list[i].textContent)
+            //console.log(td_list[i],td_list[i].textContent)
             td_list[i].setAttribute("value", value);
             td_list[i].textContent=han_states[value];
-            
+            update_han_status(td_list[i]);
         };
         object.setAttribute("value", (value+1)%2);
     }
@@ -141,7 +154,7 @@
             <tr height="10">  
                 {% for col in row %}
                 {% set col_loop = loop %}
-                <td name="td-{{table_loop.index}}-{{loop.index}}" id="td-{{table_loop.index}}-{{row_loop.index}}-{{loop.index}}" han="{{col['han']}}"  image_uuid="{{col['image_uuid']}}" onclick="img_td_click(this)" font-size="5px" value="{{default_value}}">0</td>
+                <td name="td-{{table_loop.index}}-{{loop.index}}" id="td-{{table_loop.index}}-{{row_loop.index}}-{{loop.index}}" han="{{col['han']}}"  image_uuid="{{col['image_uuid']}}" onclick="img_td_click(this)" onchange="update_han_status(this)" font-size="5px" value="{{default_value}}">0</td>
                 {% endfor %}
             </tr>
         {% endfor %}
