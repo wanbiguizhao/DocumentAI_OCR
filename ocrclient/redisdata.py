@@ -1,9 +1,13 @@
 from collections import defaultdict
 
 import os
-
+PROJECT_DIR= os.path.dirname(
+        os.path.dirname(os.path.realpath( __file__))
+    
+)
+APP_DIR= os.path.join(PROJECT_DIR,"ocrclient")
 from tqdm import tqdm
-from config import load_json_data,JSON_DATA_PATH
+from config import load_json_data,JSON_DATA_PATH,dump_json_data
 from typing import Any, Optional
 from pydantic import EmailStr
 from redis_om import get_redis_connection
@@ -61,6 +65,8 @@ class hanResultData(HashModel):
         text_dict[self.cg_gan_origin_text]=text_dict[self.cg_gan_origin_text]+self.cg_gan_origin_score*0.5
         text_dict[self.cg_gan_text]+=self.cg_gan_score
         return text_dict
+    class Meta:
+        model_key_prefix=f"__main__.hanResultData" 
 class tempHanImage(HashModel):
     # ocr 识别的汉字个数是1的数据,放到数据库中进行分析
     image_uuid:str= Field(index=True)
@@ -318,13 +324,34 @@ def analysis_hanResultData():
                 ).save()    
     print(len(han_set))
 
-def dump_han_top10score_tempHanImage():
-    pass 
-
-
-
-def pipline_template_topn():
-    pass 
+def pipline01():
+    #获取hanData中所有labeled为1的图片，并且从tempHanImage中找到对应的文字。
+    # 并且把图片放到指定位置。
+    print(hanData.find().count())
+    han_set=set()
+    han_image_dict=defaultdict(list)# 汉字对应图片的路径
+    all_han_data=hanData.find(hanData.labeled==1).all()# 去掉那些已经标记过的汉字。
+    for han in all_han_data:
+        temp_data_list=tempHanImage.find(tempHanImage.text==han.han,tempHanImage.labeled==1).sort_by("-score").all()
+        for tdi in temp_data_list:
+            #print(tdi.text,tdi.get_image_path(),tdi.image_uuid)
+            han_set.update(tdi.text)
+            han_image_dict[tdi.text].append(tdi.get_image_path())
+    # 利用已经有的数据集，找到汉字对应的图片
+    for dirname in os.listdir("tmp/word2imgtop10"):
+        han=dirname.split("@")[-1]
+        if is_contains_chinese(han) :# 超过10个图片
+            for png_file in os.listdir(f"tmp/word2imgtop10/{dirname}/"):
+                #print(han,f"tmp/word2imgtop10/{dirname}/{png_file}")
+                han_image_dict[han].append(f"tmp/word2imgtop10/{dirname}/{png_file}")
+    han_freq_data=load_json_data(f"{APP_DIR}/tmp/han_freq.json")# 记录语料中存在的汉字，检查一下哪里没有这样的汉字。
+    count=0
+    for target_han in han_freq_data.keys():
+        if target_han not in han_set and is_contains_chinese(target_han):
+            print(target_han,han_freq_data[target_han])
+            count+=1
+    dump_json_data(han_image_dict,f"{APP_DIR}/tmp/han_image_path.json")
+    
 if __name__=="__main__":
     #use_cg_gan_ocr_data()
     #move_usefull_ocr_data()
@@ -332,4 +359,5 @@ if __name__=="__main__":
     #getallHan()
     #analysis_hanResultData()
     #getallHan()
-    getNtempHanImage(page_size=10,han_num=30)
+    #getNtempHanImage(page_size=10,han_num=30)
+    pipline01()
