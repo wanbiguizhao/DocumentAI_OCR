@@ -3,12 +3,10 @@ from collections import defaultdict
 import os
 
 from tqdm import tqdm
-os.environ.setdefault("REDIS_OM_URL","redis://:wwheqq@0.0.0.0:6379")
 from config import load_json_data,JSON_DATA_PATH
 from typing import Any, Optional
 from pydantic import EmailStr
 from redis_om import get_redis_connection
-
 redis_conn = get_redis_connection()
 def is_contains_chinese(strs):
     for _char in strs:
@@ -75,9 +73,13 @@ class hanData(HashModel):
     # 汉字的一般数据
     han:str= Field(index=True)# 汉字
     count: Optional[int]= Field(index=True,sortable=True,default=-1)# 识别出来的汉字
-
     def info(self):
         return f"{self.han}\t{self.count}"
+    @classmethod
+    def make_key(cls, part: str):
+        global_prefix = getattr(cls._meta, "global_key_prefix", "").strip(":")
+        model_prefix = "__main__.hanData"
+        return f"{global_prefix}:{model_prefix}:{part}"
 
 
 
@@ -129,15 +131,15 @@ def get_all_han():
             hanData.delete(han.pk)
     print(len([han.han for han in all_han_data if "##" not in han.han]))
 
-def get_han_from_dir():
-    # 解析文件路径，找到汉字
+def get_han_from_dir(min_num=10):
+    # 解析文件路径，找到汉字，min_num要求汉字里面最少包含min_num个图片，才算有效汉字
     #word2imgtop10
     #|-@
     #|-@週
     han_set=set()
     for dirname in os.listdir("tmp/word2imgtop10"):
         han=dirname.split("@")[-1]
-        if is_contains_chinese(han) and len(os.listdir(f"tmp/word2imgtop10/{dirname}"))>=10:# 超过10个图片
+        if is_contains_chinese(han) and len(os.listdir(f"tmp/word2imgtop10/{dirname}"))>=min_num:# 超过10个图片
         
             han_set.update(han)
     return han_set
@@ -151,16 +153,30 @@ def getallHan(n=5):
     record_file=open("image_top_score_info.txt","w")
     for han in all_han_data:
         if "##" not in han.han and han.han not in dir_han_set:
-            #han.count=hanResultData.find(hanResultData.text==han.han).count()
-            # han.save()
             han_data_list=tempHanImage.find(tempHanImage.text==han.han).sort_by("-score").page(0,n)
             for han_data in han_data_list:
                 record_file.write(han_data.info()+"\n")
-        # else:
-        #     #han.count=-10
-        #     han.save()
-
     record_file.close()
+def getNtempHanImage(page_size=10,han_num=30):
+    Migrator().run()
+    all_han_data=hanData.find().all()
+    print(len(all_han_data))
+    dir_han_set=get_han_from_dir()
+    result_dict=defaultdict(list)
+    for han in all_han_data:
+        if "##" not in han.han and han.han not in dir_han_set:
+            han_data_list=tempHanImage.find(tempHanImage.text==han.han).sort_by("-score").page(0,page_size)
+            for han_data in han_data_list:
+                result_dict[han_data.text].append(
+                {
+                    "score":han_data.score,
+                    "image_uuid":han_data.image_uuid,
+                    "image_path":han_data.get_image_path(),
+                    "han":han_data.text
+                })
+        if len(result_dict)>=han_num:
+            break
+    return result_dict
 def getTopNHan(hantext,n=10):
     # 根据汉字的分数拿到从高到底的汉字对应图片
     print("han count:",hanData.find().count()) 
@@ -306,10 +322,10 @@ def dump_han_top10score_tempHanImage():
 def pipline_template_topn():
     pass 
 if __name__=="__main__":
-    os.environ.setdefault("REDIS_OM_URL","redis://:wwheqq@0.0.0.0:6379")
     #use_cg_gan_ocr_data()
     #move_usefull_ocr_data()
     #getTopNHan("群")
     #getallHan()
-    analysis_hanResultData()
-    getallHan()
+    #analysis_hanResultData()
+    #getallHan()
+    getNtempHanImage(page_size=10,han_num=30)

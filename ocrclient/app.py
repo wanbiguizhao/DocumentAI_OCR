@@ -4,7 +4,7 @@ import os
 PROJECT_DIR=  os.path.dirname(os.path.dirname(os.path.realpath( __file__)))
 template_dir = os.path.join(PROJECT_DIR,"ocrclient/template")
 app = Flask(__name__, template_folder=template_dir)
-
+import redis_om
 from flask import send_from_directory
 @app.route('/tmp/<path:path>')
 def send_tmp_report(path):
@@ -31,41 +31,31 @@ def load_data():
                }
             )
     return han_dict
+
+
 @app.route('/',methods = ['POST', 'GET'])
 @app.route('/hello',methods = ['POST', 'GET'])
 def render_han_image():
-#     return render_template('index.html', user=user)
-# def render_han_image():
-    # from jinja2 import Environment,FileSystemLoader, PackageLoader, select_autoescape
-    # import re 
-    # env = Environment(
-    #     loader=FileSystemLoader(PROJECT_DIR),
-    #     autoescape=select_autoescape()
-    # )
-    # template = env.get_template("ocrclient/template/image_han_talbe.html")
+    from redisdata import getNtempHanImage
     if request.method=="POST":
         print(request.json)
-
-
     table_list=[]# 存儲多個表
-    han_dict=load_data()
-    table_col_num=40# 一個表有20列
-
+    table_col_num=30# 一個表有20列
+    han_dict=getNtempHanImage(page_size=10,han_num=table_col_num)
+    print(han_dict)
     key_list=sorted(han_dict.keys(),key=lambda x: -len(han_dict[x]))# 做了排序，可以保證先看到多的圖片
     default_value=-1
     beg=0
     han_image_dict=defaultdict(list)
-    if beg+table_col_num<len(key_list):
-        th_list=key_list[beg:beg+table_col_num]
-    else:
-        th_list=key_list[beg:]
+    th_list=key_list
     table_data=[]
     row_index=0
+    print(th_list)
     while row_index<10:
         if row_index>=len(han_dict[th_list[0]]):#一個漢字對應的圖片個數，因爲是長度進行了排序，所以第一列就是最大長度
             break
         table_row=[]
-        for ci in range(table_col_num):
+        for ci in range(len(th_list)):
             han_key=th_list[ci]
             han_data=han_dict[han_key]
             if row_index>=len(han_data):
@@ -92,5 +82,5 @@ if __name__=="__main__":
     #load_data()
     #render_html()
     app.run(
-        debug=True
+        debug=False
     )
