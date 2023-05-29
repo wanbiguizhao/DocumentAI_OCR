@@ -29,6 +29,8 @@ class HanImageInfo(HashModel):
     easyocr_pk: Optional[str]
     paddleocr:int= Field(index=True,default=0)
     paddleocr_pk: Optional[str]
+    class Meta:
+        model_key_prefix=f"__main__.HanImageInfo"  
 class easyocrResultData(HashModel):
     image_uuid:str= Field(index=True)
     score: float
@@ -69,18 +71,23 @@ class tempHanImage(HashModel):
         return f"{self.text}\t{self.score}\t{self.image_uuid}\t{self.get_image_path()}"
     def get_image_path(self):
         return HanImageInfo.find(HanImageInfo.uuid==self.image_uuid).first().image_path
+    
+    class Meta:
+        model_key_prefix=f"__main__.tempHanImage"
+
 class hanData(HashModel):
     # 汉字的一般数据
     han:str= Field(index=True)# 汉字
     count: Optional[int]= Field(index=True,sortable=True,default=-1)# 识别出来的汉字
     def info(self):
         return f"{self.han}\t{self.count}"
-    @classmethod
-    def make_key(cls, part: str):
-        global_prefix = getattr(cls._meta, "global_key_prefix", "").strip(":")
-        model_prefix = "__main__.hanData"
-        return f"{global_prefix}:{model_prefix}:{part}"
-
+    # @classmethod
+    # def make_key(cls, part: str):
+    #     global_prefix = getattr(cls._meta, "global_key_prefix", "").strip(":")
+    #     model_prefix = f"__main__.{cls.__name__}"
+    #     return f"{global_prefix}:{model_prefix}:{part}"
+    class Meta:
+        model_key_prefix=f"__main__.hanData"
 
 
 print(HanImageInfo.find(HanImageInfo.paddleocr==0).count())
