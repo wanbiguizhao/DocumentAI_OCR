@@ -1,16 +1,11 @@
 from flask import Flask, render_template, request
-
-
 from collections import defaultdict
 import os 
 PROJECT_DIR=  os.path.dirname(os.path.dirname(os.path.realpath( __file__)))
 template_dir = os.path.join(PROJECT_DIR,"ocrclient/template")
 app = Flask(__name__, template_folder=template_dir)
-# app.config['UPLOAD_FOLDER']=PROJECT_DIR
-#app.config['STATIC_FOLDER'] = os.path.join(PROJECT_DIR,"ocrclient/static")
 
 from flask import send_from_directory
-
 @app.route('/tmp/<path:path>')
 def send_tmp_report(path):
     return send_from_directory(f"{PROJECT_DIR}/tmp", path)
@@ -36,8 +31,8 @@ def load_data():
                }
             )
     return han_dict
-@app.route('/')
-@app.route('/hello')
+@app.route('/',methods = ['POST', 'GET'])
+@app.route('/hello',methods = ['POST', 'GET'])
 def render_han_image():
 #     return render_template('index.html', user=user)
 # def render_han_image():
@@ -48,6 +43,10 @@ def render_han_image():
     #     autoescape=select_autoescape()
     # )
     # template = env.get_template("ocrclient/template/image_han_talbe.html")
+    if request.method=="POST":
+        print(request.json)
+
+
     table_list=[]# 存儲多個表
     han_dict=load_data()
     table_col_num=40# 一個表有20列
@@ -93,5 +92,5 @@ if __name__=="__main__":
     #load_data()
     #render_html()
     app.run(
-        
+        debug=True
     )

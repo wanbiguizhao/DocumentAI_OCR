@@ -5,6 +5,7 @@
         <link rel="stylesheet" href="static/pyscript.css" />
         <script defer src="static/pyscript.js"></script>
 </head>
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 
 <style>
     table {
@@ -66,11 +67,28 @@
 /* 
     th:nth-child(odd){ background:#311D1E; color:#fff;} */
 </style>
-<py-script>
+<!-- <script type="module">
+    // A JSON POST request using Axios
+    import axios from 'https://unpkg.com/axios/dist/esm/axios.min.js'
+  
+    const newProduct = {
+      id: 1017,
+      description: 'New Phone Z',
+      price: 433
+    }
+  
+    const response = await axios.post('127.0.0.1:5000', han_image_dict)
+  
+    console.log('status:', response.status)
 
-    def on_click(*args, **kws):
-        print(args,kws)
-</py-script>
+    // output:
+    //   status: 200
+    //   data: {
+    //      "id": 1017,
+    //      "description": "New Phone Z",
+    //      "price": 433
+    //   }
+  </script> -->
 <script>
     var han_image_dict = {{han_image_dict|tojson}};
 </script>    
@@ -132,9 +150,21 @@
         };
         object.setAttribute("value", (value+1)%2);
     }
+    async function submitData(object){
+        
+        const response = await axios.post('.', han_image_dict)
+        // const response = await fetch('http://127.0.0.1:5000', {
+        // method: 'POST',
+        // headers: {
+        //     'Content-Type': 'application/json; charset=utf-8'
+        // },
+        // body: JSON.stringify(han_image_dict),
+        // })
+    };
 </script>
 <body>
     <ul id="navigation">
+        <button onclick="submitData(this)"></button>
         {% for table in table_list %}
         {% set table_loop = loop %}
     <table>
@@ -154,7 +184,7 @@
             <tr height="10">  
                 {% for col in row %}
                 {% set col_loop = loop %}
-                <td name="td-{{table_loop.index}}-{{loop.index}}" id="td-{{table_loop.index}}-{{row_loop.index}}-{{loop.index}}" han="{{col['han']}}"  image_uuid="{{col['image_uuid']}}" onclick="img_td_click(this)" onchange="update_han_status(this)" font-size="5px" value="{{default_value}}">0</td>
+                <td name="td-{{table_loop.index}}-{{loop.index}}" id="td-{{table_loop.index}}-{{row_loop.index}}-{{loop.index}}" han="{{col['han']}}"  image_uuid="{{col['image_uuid']}}" onclick="img_td_click(this)"  font-size="5px" value="{{default_value}}">0</td>
                 {% endfor %}
             </tr>
         {% endfor %}
