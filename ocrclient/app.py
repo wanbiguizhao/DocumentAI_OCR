@@ -36,22 +36,22 @@ def load_data():
 @app.route('/',methods = ['POST', 'GET'])
 @app.route('/hello',methods = ['POST', 'GET'])
 def render_han_image():
-    from redisdata import getNtempHanImage
+    from redisdata import getNtempHanImage,update_tempHanImage_hanData
     if request.method=="POST":
-        print(request.json)
+        update_tempHanImage_hanData(request.json)
+        #print()
+        # 根据image_uuid:[汉字，labeld] 确定是不是这个汉字
     table_list=[]# 存儲多個表
     table_col_num=30# 一個表有20列
     han_dict=getNtempHanImage(page_size=10,han_num=table_col_num)
     print(han_dict)
     key_list=sorted(han_dict.keys(),key=lambda x: -len(han_dict[x]))# 做了排序，可以保證先看到多的圖片
     default_value=-1
-    beg=0
     han_image_dict=defaultdict(list)
     th_list=key_list
     table_data=[]
     row_index=0
-    print(th_list)
-    while row_index<10:
+    while row_index<10 and len(th_list)>0:
         if row_index>=len(han_dict[th_list[0]]):#一個漢字對應的圖片個數，因爲是長度進行了排序，所以第一列就是最大長度
             break
         table_row=[]

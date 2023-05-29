@@ -61,36 +61,38 @@ class hanResultData(HashModel):
         text_dict[self.cg_gan_origin_text]=text_dict[self.cg_gan_origin_text]+self.cg_gan_origin_score*0.5
         text_dict[self.cg_gan_text]+=self.cg_gan_score
         return text_dict
-        
 class tempHanImage(HashModel):
     # ocr 识别的汉字个数是1的数据,放到数据库中进行分析
     image_uuid:str= Field(index=True)
     score: float= Field(index=True,sortable=True)
     text:str=Field(index=True)
+    labeled: Optional[int]= Field(index=True,default=-1)# 是否被人工标注过，-1 表示没有看过，0，表示错误，1表示正确
     def info(self):
         return f"{self.text}\t{self.score}\t{self.image_uuid}\t{self.get_image_path()}"
     def get_image_path(self):
         return HanImageInfo.find(HanImageInfo.uuid==self.image_uuid).first().image_path
-    
     class Meta:
         model_key_prefix=f"__main__.tempHanImage"
-
 class hanData(HashModel):
     # 汉字的一般数据
     han:str= Field(index=True)# 汉字
     count: Optional[int]= Field(index=True,sortable=True,default=-1)# 识别出来的汉字
+    labeled: Optional[int]= Field(index=True,default=-1)# 是否被人工标注过，-1 表示没有标注过，1表示标注。
     def info(self):
         return f"{self.han}\t{self.count}"
-    # @classmethod
-    # def make_key(cls, part: str):
-    #     global_prefix = getattr(cls._meta, "global_key_prefix", "").strip(":")
-    #     model_prefix = f"__main__.{cls.__name__}"
-    #     return f"{global_prefix}:{model_prefix}:{part}"
     class Meta:
         model_key_prefix=f"__main__.hanData"
-
-
-print(HanImageInfo.find(HanImageInfo.paddleocr==0).count())
+def update_tempHanImage_hanData(image_uuid_dict):
+    #image_uuid_dict key，image_uuid, value [ 汉字， value -1，0 表示错 1 表示√]
+    # hanData 告诉有了正确答案
+    # tempHanImage 更新标注结果。
+    for image_uuid,han_value in image_uuid_dict.items():
+        han,value=han_value[0],han_value[1]
+        if value==1:
+            # 发现了一个正确的汉字。
+            if hanData.find(hanData.han==han,hanData.labeled!=1).count()>0:
+                hanData.find(hanData.han==han,hanData.labeled!=1).update(use_transaction=True,labeled=1)
+        tempHanImage.find(tempHanImage.image_uuid==image_uuid,tempHanImage.text==han).update(use_transaction=True,labeled=value)# 把图片更新掉。
 
 def move_usefull_ocr_data():
     # 对于识别后的ocr数据存储到hanResultData
@@ -137,7 +139,6 @@ def get_all_han():
         if not is_contains_chinese(han.han) and "##" not in han.han:
             hanData.delete(han.pk)
     print(len([han.han for han in all_han_data if "##" not in han.han]))
-
 def get_han_from_dir(min_num=10):
     # 解析文件路径，找到汉字，min_num要求汉字里面最少包含min_num个图片，才算有效汉字
     #word2imgtop10
@@ -150,8 +151,6 @@ def get_han_from_dir(min_num=10):
         
             han_set.update(han)
     return han_set
-
-
 def getallHan(n=5):
     # 根据汉字的分数拿到从高到底的汉字对应图片
     print("han count:",hanData.find().count()) 
@@ -164,15 +163,22 @@ def getallHan(n=5):
             for han_data in han_data_list:
                 record_file.write(han_data.info()+"\n")
     record_file.close()
+
+DATA_CHECK_SET=set()
 def getNtempHanImage(page_size=10,han_num=30):
+    #从hanData找到所有汉字
+    #根据汉字，找到tempHanImage中对应图片
+    # 按照图片的分数从高到低提供数据。
     Migrator().run()
-    all_han_data=hanData.find().all()
+    print(hanData.find().count())
+    all_han_data=hanData.find(hanData.labeled<1).all()# 去掉那些已经标记过的汉字。
     print(len(all_han_data))
     dir_han_set=get_han_from_dir()
     result_dict=defaultdict(list)
     for han in all_han_data:
-        if "##" not in han.han and han.han not in dir_han_set:
-            han_data_list=tempHanImage.find(tempHanImage.text==han.han).sort_by("-score").page(0,page_size)
+        if "##" not in han.han and han.han not in dir_han_set and han.han not in DATA_CHECK_SET:
+            DATA_CHECK_SET.update(han.han)
+            han_data_list=tempHanImage.find(tempHanImage.text==han.han,tempHanImage.labeled!=0).sort_by("-score").page(0,page_size)
             for han_data in han_data_list:
                 result_dict[han_data.text].append(
                 {
@@ -184,6 +190,7 @@ def getNtempHanImage(page_size=10,han_num=30):
         if len(result_dict)>=han_num:
             break
     return result_dict
+
 def getTopNHan(hantext,n=10):
     # 根据汉字的分数拿到从高到底的汉字对应图片
     print("han count:",hanData.find().count()) 
@@ -262,18 +269,12 @@ def use_cg_gan_ocr_data():
                 ocr_data=ocr_data[0]
                 for k,v in easy_ocr["easyocr"].items():
                     if "_img_print.png" in k:
-                        #print(easy_ocr["easyocr"][k][0][1],easy_ocr["easyocr"][k][0][2],k,"origin_text")
                         ocr_data.cg_gan_origin_text=easy_ocr["easyocr"][k][0][1]
                         ocr_data.cg_gan_origin_score=easy_ocr["easyocr"][k][0][2]
                     else:
-                        #print(easy_ocr["easyocr"][k][0][1],easy_ocr["easyocr"][k][0][2],k,"text")
                         ocr_data.cg_gan_text=easy_ocr["easyocr"][k][0][1]
                         ocr_data.cg_gan_score=easy_ocr["easyocr"][k][0][2]
                 ocr_data.save()
-            # key1=easy_ocr["easyocr"].keys()[0],key2=easy_ocr["easyocr"].keys()[1]
-            # if "_img_print.png" in key1:
-            #     print(easy_ocr["easyocr"][key1][0][1],key1,"origin_text")
-            #     print(easy_ocr["easyocr"][key2][0][1],key2,"text")
         if os.path.exists(f"{basic_infer_dir}/{uuid_image_dir}/pocr.json"):
             paddle_ocr=load_json_data(f"{basic_infer_dir}/{uuid_image_dir}/pocr.json")
             ocr_data=hanResultData.find(hanResultData.image_uuid==uuid_image_dir,hanResultData.from_ocr=="paddleocr").all()
@@ -281,16 +282,12 @@ def use_cg_gan_ocr_data():
                 ocr_data=ocr_data[0]
                 for k,v in paddle_ocr["paddleocr"].items():
                     if "_img_print.png" in k:
-                        #print(paddle_ocr["paddleocr"][k][0][0][0],paddle_ocr["paddleocr"][k][0][0][1],k,"origin_text")
                         ocr_data.cg_gan_origin_text=paddle_ocr["paddleocr"][k][0][0][0]
                         ocr_data.cg_gan_origin_score=paddle_ocr["paddleocr"][k][0][0][1]
                     else:
-                        #print(paddle_ocr["paddleocr"][k][0][0][0],paddle_ocr["paddleocr"][k][0][0][1],k,"text")
                         ocr_data.cg_gan_text=paddle_ocr["paddleocr"][k][0][0][0]
                         ocr_data.cg_gan_score=paddle_ocr["paddleocr"][k][0][0][1]
                 ocr_data.save()
-
-
 
 def analysis_hanResultData():
     # 分析数据hanResultData 找到所有的汉字

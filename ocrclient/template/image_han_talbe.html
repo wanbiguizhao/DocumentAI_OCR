@@ -2,12 +2,22 @@
 <html lang="en">
 <head>
     <title>汉字图片识别</title>
-        <link rel="stylesheet" href="static/pyscript.css" />
-        <script defer src="static/pyscript.js"></script>
+        <!-- <link rel="stylesheet" href="static/pyscript.css" /> -->
+        <!-- <script defer src="static/pyscript.js"></script> -->
 </head>
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 
 <style>
+    button {
+        background-color: #4CAF50; /* Green */
+        border: none;
+        color: white;
+        padding: 15px 32px;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 16px;
+        }
     table {
       font-family: arial, sans-serif;
       border-collapse: collapse;
@@ -66,34 +76,28 @@
     }
 /* 
     th:nth-child(odd){ background:#311D1E; color:#fff;} */
-</style>
-<!-- <script type="module">
-    // A JSON POST request using Axios
-    import axios from 'https://unpkg.com/axios/dist/esm/axios.min.js'
-  
-    const newProduct = {
-      id: 1017,
-      description: 'New Phone Z',
-      price: 433
-    }
-  
-    const response = await axios.post('127.0.0.1:5000', han_image_dict)
-  
-    console.log('status:', response.status)
 
-    // output:
-    //   status: 200
-    //   data: {
-    //      "id": 1017,
-    //      "description": "New Phone Z",
-    //      "price": 433
-    //   }
-  </script> -->
+.wrapper {
+    padding: 15px 20px;
+    border: 1px dashed #ff6c60;
+}
+.left {
+    width: 70%;
+    border: 5px solid #ddd;
+}
+.right {
+    margin-left: 20px;
+    width: 10%;
+    border: 5px solid #ddd;
+    text-align: right;
+}
+</style>
+
 <script>
     var han_image_dict = {{han_image_dict|tojson}};
 </script>    
 <script>
-    var han_states=["√","×"];
+    var han_states=["×","√"];
     function update_han_status(object){
         //设置图片对应汉字的状态
         value=parseInt(object.getAttribute("value"))
@@ -153,6 +157,7 @@
     async function submitData(object){
         
         const response = await axios.post('.', han_image_dict)
+        window.location.reload();
         // const response = await fetch('http://127.0.0.1:5000', {
         // method: 'POST',
         // headers: {
@@ -163,33 +168,46 @@
     };
 </script>
 <body>
-    <ul id="navigation">
-        <button onclick="submitData(this)"></button>
-        {% for table in table_list %}
-        {% set table_loop = loop %}
-    <table>
-        <tr> 
-            {% for th in table['th_list'] %}
-            <th tdname="td-{{table_loop.index}}-{{loop.index}}"  onclick="th_click(this)" value=1 > {{th}}</th>
-            {% endfor %}
-        </tr>
-        {% for row in table['table_data'] %}
-        {% set row_loop = loop %}
-            <tr>  
-                {% for col in row %}
-                {% set col_loop = loop %}
-                <td > <img src="{{col['image_path']}}" tid="td-{{table_loop.index}}-{{row_loop.index}}-{{loop.index}}"  han="{{col['han']}}" image_uuid="{{col['image_uuid']}}" onclick="img_click(this)" ></td>
+        <div class="wrapper" id="wrapper">
+            <div class="right" >
+                <button onclick="submitData(this)" >提交</button>
+            </div>
+            <div class="left">
+                {% for table in table_list %}
+                {% set table_loop = loop %}
+                <table>
+                    <tr> 
+                        {% for th in table['th_list'] %}
+                        <th tdname="td-{{table_loop.index}}-{{loop.index}}"  onclick="th_click(this)" value=1 > {{th}}</th>
+                        {% endfor %}
+                    </tr>
+                    {% for row in table['table_data'] %}
+                    {% set row_loop = loop %}
+                        <tr>  
+                            {% for col in row %}
+                            {% set col_loop = loop %}
+                            <td > <img src="{{col['image_path']}}" tid="td-{{table_loop.index}}-{{row_loop.index}}-{{loop.index}}"  han="{{col['han']}}" image_uuid="{{col['image_uuid']}}" onclick="img_click(this)" ></td>
+                            {% endfor %}
+                        </tr>
+                        <tr height="10">  
+                            {% for col in row %}
+                            {% set col_loop = loop %}
+                            <td name="td-{{table_loop.index}}-{{loop.index}}" id="td-{{table_loop.index}}-{{row_loop.index}}-{{loop.index}}" han="{{col['han']}}"  image_uuid="{{col['image_uuid']}}" onclick="img_td_click(this)"  font-size="5px" value="{{default_value}}">0</td>
+                            {% endfor %}
+                        </tr>
+                    {% endfor %}
+                  </table>
+                <p ><span>...</span></p>
                 {% endfor %}
-            </tr>
-            <tr height="10">  
-                {% for col in row %}
-                {% set col_loop = loop %}
-                <td name="td-{{table_loop.index}}-{{loop.index}}" id="td-{{table_loop.index}}-{{row_loop.index}}-{{loop.index}}" han="{{col['han']}}"  image_uuid="{{col['image_uuid']}}" onclick="img_td_click(this)"  font-size="5px" value="{{default_value}}">0</td>
-                {% endfor %}
-            </tr>
-        {% endfor %}
-      </table>
-    <p ><span>...</span></p>
-    {% endfor %}
+    
+            </div>
+            <div class="right" >
+                <button type="submit" onclick="submitData(this)" >提交</button>
+            </div>
+        </div>
+
+
+        
+
 </body>
 </html>
