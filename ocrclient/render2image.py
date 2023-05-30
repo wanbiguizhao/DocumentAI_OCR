@@ -91,17 +91,28 @@ def pipeline01():
     #批量生成用于训练的语料。
     han_image_path_data=load_json_data(HAN_IMAGE_PATH)
     multiple_num=5
-    images_save_dir=f"{APP_DIR}/tmp/traindata/"
+    
+    images_save_dir=f"{APP_DIR}/tmp/traindata/images"
+    rec_gt_train_path=f"{APP_DIR}/tmp/traindata/rec_gt_train.txt"
     smart_make_dirs(images_save_dir)
     wis=WordImgSet(han_image_path_data=han_image_path_data)
     corups=load_json_data(CORUPS_PATH)
+    rec_gt_train_file=open(rec_gt_train_path,"w")
     for index,corup in enumerate(corups):
         if len(corup)<5:
             continue
+        png_image_list=[]
         for small_index in range(multiple_num):
-            grayimage,corup_text=wis.text2image(corup)
+            grayimage,corup_text=wis.text2image(corup,random_mis_char=False)
             if grayimage is not None:
-                save_image(f"{images_save_dir}/{index}-{small_index}.png",grayimage)
+                png_name=f"{index}-{small_index}.png"
+                save_image(f"{images_save_dir}/{png_name}",grayimage)
+                png_image_list.append(f'"{png_name}"')
+        if len(png_image_list)>0:
+            rec_gt_train_file.write(
+                "["+",".join(png_image_list)+"]"+"\t"+"".join(corup_text)+"\n"
+            )
+    rec_gt_train_file.close()
 
 if __name__=="__main__":
     pipeline01()
