@@ -1,19 +1,18 @@
 
-
-from random import random
+import random
 
 from tqdm import tqdm
-from config import load_json_data,dump_json_data,HAN_IMAGE_PATH
+from config import load_json_data,dump_json_data,HAN_IMAGE_PATH,CORUPS_PATH,APP_DIR
 import cv2 as  cv
 import numpy as np
-han_image_path_data=load_json_data(HAN_IMAGE_PATH)# 存放图片，汉字对应的图片
+from util import smart_make_dirs
 
 
 class WordImgSet:
     """
     汉字对应的图片
     """
-    def __init__(self,han_image_path_data=han_image_path_data) -> None:
+    def __init__(self,han_image_path_data=load_json_data(HAN_IMAGE_PATH)) -> None:
         self.han_info={}
         for han,path_list in tqdm(han_image_path_data.items(),desc="加载图片数据中"):
             images=[]
@@ -44,32 +43,72 @@ class WordImgSet:
         while d<u and sum(th_image[u,:])>=255*w*0.98:
             u-=1
         return image[ d : u+1, max(l-1,0):min( w,r+1+1)] # 上下左右各留了2像素
-
-    def text2image(self,text):
-        guess_max_h=0
+    
+    def text2image(self,text,random_mis_char=False):
+        # 对于text中不存在的字符，是否随机替换一个字符
+        ret_text=[]
+        guess_hd,guess_hu=75,0
         max_width=96*len(text)
         sentence_img=np.zeros((75,max_width),dtype = np.uint8)
+        guess_max_h=0
         sentence_img[:,:]=255
         beg_w=0
         for ch in text:
             if ch not in self.han_info:
-                continue
+                if not random_mis_char:
+                    continue
+                ch=random.choice(self.han_info.keys())# 随机从库中拿一个字符
+            ret_text.append(ch)
             wordimg=self.get_han_image(ch)
             h,w=wordimg.shape
-            guess_max_h=max(guess_max_h,h)
-            sentence_img[75-h:75,beg_w:beg_w+w]=wordimg.copy()# 这一步非常重要，决定了图片的汉字是以下对齐
+            
+            h_mid=75//2
+            whd,whu= (h_mid-h//2),(h_mid+h-h//2)#计算汉字的上下界线
+            guess_hu=max(guess_hu,whu)
+            guess_hd=min(guess_hd,whd)
+            sentence_img[whd:whu,beg_w:beg_w+w]=wordimg.copy()# 这一步非常重要，决定了图片的汉字是以下对齐
             beg_w+=w 
-        grayImage = cv.cvtColor(sentence_img[75-guess_max_h:,:beg_w], cv.COLOR_GRAY2BGR)
-        cv.imwrite("text.png",grayImage)
+        if len(ret_text)==0:
+            return None,[]
+        return cv.cvtColor(sentence_img[guess_hd:guess_hu+1,:beg_w], cv.COLOR_GRAY2BGR),ret_text
+
     def get_han_image(self,ch):
         index=self.han_info[ch]["index"]
         wordimg=self.han_info[ch]["images"][index]
         self.han_info[ch]["index"]=(index+1)%len(self.han_info[ch]["images"])# 指针指向下一个图片
         return wordimg
-if __name__=="__main__":
+    def get_random_image(self):
+        # 随机返回一个字符
+        ch=random.choice(self.han_info.keys())
+        index=self.han_info[ch]["index"]
+        wordimg=self.han_info[ch]["images"][index]
+        self.han_info[ch]["index"]=(index+1)%len(self.han_info[ch]["images"])# 指针指向下一个图片
+        return wordimg,ch
+def save_image(image_name,gray_image):
+    cv.imwrite(image_name,gray_image)
+
+def pipeline01():
+    #批量生成用于训练的语料。
+    han_image_path_data=load_json_data(HAN_IMAGE_PATH)
+    multiple_num=5
+    images_save_dir=f"{APP_DIR}/tmp/traindata/"
+    smart_make_dirs(images_save_dir)
     wis=WordImgSet(han_image_path_data=han_image_path_data)
-    wis.text2image("加互助合作生產及代耕工作中取得的經驗和存在的問題")
-    print("asdf")
+    corups=load_json_data(CORUPS_PATH)
+    for index,corup in enumerate(corups):
+        if len(corup)<5:
+            continue
+        for small_index in range(multiple_num):
+            grayimage,corup_text=wis.text2image(corup)
+            if grayimage is not None:
+                save_image(f"{images_save_dir}/{index}-{small_index}.png",grayimage)
+
+if __name__=="__main__":
+    pipeline01()
+    # han_image_path_data=load_json_data(HAN_IMAGE_PATH)# 存放图片，汉字对应的图片
+    # wis=WordImgSet(han_image_path_data=han_image_path_data)
+    # wis.text2image("加强互助合作生產及代耕工作中取得的經驗和存在的問題")
+    # print("asdf")
 
     
 
