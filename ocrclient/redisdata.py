@@ -327,29 +327,39 @@ def analysis_hanResultData():
 def pipline01():
     #获取hanData中所有labeled为1的图片，并且从tempHanImage中找到对应的文字。
     # 并且把图片放到指定位置。
+    def collect_data_from_redis():
+        all_han_data=hanData.find(hanData.labeled==1).all()# 去掉那些已经标记过的汉字。
+        for han in all_han_data:
+            temp_data_list=tempHanImage.find(tempHanImage.text==han.han,tempHanImage.labeled==1).sort_by("-score").all()
+            for tdi in temp_data_list:
+                #print(tdi.text,tdi.get_image_path(),tdi.image_uuid)
+                han_set.update(tdi.text)
+                han_image_dict[tdi.text].append(tdi.get_image_path())
+    def collect_data_from_dir(basic_dir_name):
+        for dirname in os.listdir(basic_dir_name):
+            han=dirname.split("@")[-1]
+            if is_contains_chinese(han) :# 超过10个图片
+                for png_file in os.listdir(f"{basic_dir_name}/{dirname}/"):
+                    #print(han,f"tmp/word2imgtop10/{dirname}/{png_file}")
+                    han_image_dict[han].append(f"{basic_dir_name}/{dirname}/{png_file}")
+    def collect_mis_han_info():
+        count=0
+        temp=[]
+        for target_han in han_freq_data.keys():
+            if target_han not in han_set and is_contains_chinese(target_han):
+                temp.append([ han_freq_data[target_han],target_han])
+                print(target_han,han_freq_data[target_han])
+                count+=1
+        print(sorted(temp,reverse=True))
     print(hanData.find().count())
     han_set=set()
     han_image_dict=defaultdict(list)# 汉字对应图片的路径
-    all_han_data=hanData.find(hanData.labeled==1).all()# 去掉那些已经标记过的汉字。
-    for han in all_han_data:
-        temp_data_list=tempHanImage.find(tempHanImage.text==han.han,tempHanImage.labeled==1).sort_by("-score").all()
-        for tdi in temp_data_list:
-            #print(tdi.text,tdi.get_image_path(),tdi.image_uuid)
-            han_set.update(tdi.text)
-            han_image_dict[tdi.text].append(tdi.get_image_path())
+    collect_data_from_redis()
+    collect_data_from_dir(basic_dir_name)
     # 利用已经有的数据集，找到汉字对应的图片
-    for dirname in os.listdir("tmp/word2imgtop10"):
-        han=dirname.split("@")[-1]
-        if is_contains_chinese(han) :# 超过10个图片
-            for png_file in os.listdir(f"tmp/word2imgtop10/{dirname}/"):
-                #print(han,f"tmp/word2imgtop10/{dirname}/{png_file}")
-                han_image_dict[han].append(f"tmp/word2imgtop10/{dirname}/{png_file}")
+    collect_mis_han_info()
     han_freq_data=load_json_data(f"{APP_DIR}/tmp/han_freq.json")# 记录语料中存在的汉字，检查一下哪里没有这样的汉字。
-    count=0
-    for target_han in han_freq_data.keys():
-        if target_han not in han_set and is_contains_chinese(target_han):
-            print(target_han,han_freq_data[target_han])
-            count+=1
+
     dump_json_data(han_image_dict,f"{APP_DIR}/tmp/han_image_path.json")
     
 if __name__=="__main__":

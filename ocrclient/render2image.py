@@ -97,6 +97,7 @@ def pipeline_train_val_data():
     wis=WordImgSet(han_image_path_data=han_image_path_data)
     pipelinetrain(wis)
     pipelineval(wis)
+
 def pipelinetrain(wis:WordImgSet):
     #批量生成用于训练的语料。
     han_image_path_data=load_json_data(HAN_IMAGE_PATH)
