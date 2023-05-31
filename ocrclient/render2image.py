@@ -14,6 +14,7 @@ class WordImgSet:
     """
     def __init__(self,han_image_path_data=load_json_data(HAN_IMAGE_PATH)) -> None:
         self.han_info={}
+
         for han,path_list in tqdm(han_image_path_data.items(),desc="加载图片数据中"):
             images=[]
             for image_path in path_list:
@@ -28,6 +29,7 @@ class WordImgSet:
                     "images":images,
                     "index":0
                 }
+        self.han_list=list(self.han_info.keys())
     def cropImage(self,image):
         # 去掉白边
         h,w=image.shape
@@ -57,7 +59,7 @@ class WordImgSet:
             if ch not in self.han_info:
                 if not random_mis_char:
                     continue
-                ch=random.choice(self.han_info.keys())# 随机从库中拿一个字符
+                ch=random.choice(self.han_list)# 随机从库中拿一个字符
             ret_text.append(ch)
             wordimg=self.get_han_image(ch)
             h,w=wordimg.shape
@@ -87,7 +89,15 @@ class WordImgSet:
 def save_image(image_name,gray_image):
     cv.imwrite(image_name,gray_image)
 
-def pipeline01():
+
+
+def pipeline_train_val_data():
+    # 生成训练数据集和验证数据集
+    han_image_path_data=load_json_data(HAN_IMAGE_PATH)
+    wis=WordImgSet(han_image_path_data=han_image_path_data)
+    pipelinetrain(wis)
+    pipelineval(wis)
+def pipelinetrain(wis:WordImgSet):
     #批量生成用于训练的语料。
     han_image_path_data=load_json_data(HAN_IMAGE_PATH)
     multiple_num=5
@@ -95,10 +105,11 @@ def pipeline01():
     images_save_dir=f"{APP_DIR}/tmp/traindata/images"
     rec_gt_train_path=f"{APP_DIR}/tmp/traindata/rec_gt_train.txt"
     smart_make_dirs(images_save_dir)
-    wis=WordImgSet(han_image_path_data=han_image_path_data)
+    
     corups=load_json_data(CORUPS_PATH)
+    random.shuffle(corups)
     rec_gt_train_file=open(rec_gt_train_path,"w")
-    for index,corup in enumerate(corups):
+    for index,corup in tqdm(enumerate(corups),desc="生成训练数据集"):
         if len(corup)<5:
             continue
         png_image_list=[]
@@ -113,9 +124,38 @@ def pipeline01():
                 "["+",".join(png_image_list)+"]"+"\t"+"".join(corup_text)+"\n"
             )
     rec_gt_train_file.close()
-
+def pipelineval(wis:WordImgSet):
+    #批量生成用于验证数据。
+    han_image_path_data=load_json_data(HAN_IMAGE_PATH)
+    multiple_num=5
+    
+    images_save_dir=f"{APP_DIR}/tmp/valdata/images"
+    rec_gt_train_path=f"{APP_DIR}/tmp/valdata/rec_gt_val.txt"
+    smart_make_dirs(images_save_dir)
+    #wis=WordImgSet(han_image_path_data=han_image_path_data)
+    corups=load_json_data(CORUPS_PATH)
+    random.shuffle(corups)
+    rec_gt_train_file=open(rec_gt_train_path,"w")
+    for index,corup in tqdm(enumerate(corups),desc="生成验证数据集"):
+        if len(corup)<5:
+            continue
+        #png_image_list=[]
+        for small_index in range(multiple_num):
+            grayimage,corup_text=wis.text2image(corup,random_mis_char=True)
+            if grayimage is not None:
+                png_name=f"{index}-{small_index}.png"
+                save_image(f"{images_save_dir}/{png_name}",grayimage)
+                rec_gt_train_file.write(
+                png_name+"\t"+"".join(corup_text)+"\n"
+            )
+        #         png_image_list.append(f'"{png_name}"')
+        # if len(png_image_list)>0:
+            # rec_gt_train_file.write(
+            #     "["+",".join(png_image_list)+"]"+"\t"+"".join(corup_text)+"\n"
+            # )
+    rec_gt_train_file.close()
 if __name__=="__main__":
-    pipeline01()
+    pipeline_train_val_data()
     # han_image_path_data=load_json_data(HAN_IMAGE_PATH)# 存放图片，汉字对应的图片
     # wis=WordImgSet(han_image_path_data=han_image_path_data)
     # wis.text2image("加强互助合作生產及代耕工作中取得的經驗和存在的問題")
