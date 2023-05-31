@@ -11,12 +11,9 @@ from config import load_json_data,JSON_DATA_PATH,dump_json_data
 from typing import Any, Optional
 from pydantic import EmailStr
 from redis_om import get_redis_connection
+from util import is_contains_chinese
 redis_conn = get_redis_connection()
-def is_contains_chinese(strs):
-    for _char in strs:
-        if not('\u4e00' <= _char <= '\u9fa5'):
-            return False
-    return True
+
 from redis_om import (
     Field,
     HashModel,
@@ -342,23 +339,26 @@ def pipline01():
                 for png_file in os.listdir(f"{basic_dir_name}/{dirname}/"):
                     #print(han,f"tmp/word2imgtop10/{dirname}/{png_file}")
                     han_image_dict[han].append(f"{basic_dir_name}/{dirname}/{png_file}")
+                han_set.update(han)
     def collect_mis_han_info():
         count=0
         temp=[]
         for target_han in han_freq_data.keys():
             if target_han not in han_set and is_contains_chinese(target_han):
                 temp.append([ han_freq_data[target_han],target_han])
-                print(target_han,han_freq_data[target_han])
+                print(target_han)
                 count+=1
-        print(sorted(temp,reverse=True))
+        for pairs in sorted(temp,reverse=True):
+            print(pairs)
     print(hanData.find().count())
     han_set=set()
     han_image_dict=defaultdict(list)# 汉字对应图片的路径
-    collect_data_from_redis()
-    collect_data_from_dir(basic_dir_name)
+    #collect_data_from_redis()
+    collect_data_from_dir(basic_dir_name="tmp/infer_images_resize")
+    han_freq_data=load_json_data(f"{APP_DIR}/tmp/han_freq.json")# 记录语料中存在的汉字，检查一下哪里没有这样的汉字。
     # 利用已经有的数据集，找到汉字对应的图片
     collect_mis_han_info()
-    han_freq_data=load_json_data(f"{APP_DIR}/tmp/han_freq.json")# 记录语料中存在的汉字，检查一下哪里没有这样的汉字。
+    
 
     dump_json_data(han_image_dict,f"{APP_DIR}/tmp/han_image_path.json")
     
