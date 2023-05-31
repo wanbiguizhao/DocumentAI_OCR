@@ -12,7 +12,7 @@ class WordImgSet:
     """
     汉字对应的图片
     """
-    def __init__(self,han_image_path_data=load_json_data(HAN_IMAGE_PATH)) -> None:
+    def __init__(self,han_image_path_data=load_json_data(HAN_IMAGE_PATH),cropimage=True) -> None:
         self.han_info={}
 
         for han,path_list in tqdm(han_image_path_data.items(),desc="加载图片数据中"):
@@ -22,8 +22,10 @@ class WordImgSet:
                 h,w=img.shape
                 if h>75:
                     continue 
-
-                images.append( self.cropImage(img) )
+                if cropimage==True:# 有的图片本身就已经crop过了。
+                    images.append( self.cropImage(img) )
+                else:
+                    images.append( img)
             if len(images)>0:
                 self.han_info[han]={
                     "images":images,
@@ -90,29 +92,40 @@ def save_image(image_name,gray_image):
     cv.imwrite(image_name,gray_image)
 
 
+def load_corups():
+    # 加载训练语料数据。
+    rmrb_corups=[]
+    with open("tmp/all-1946-1956-rmrb.txt") as rmrb_corups_file:
+        line_content=rmrb_corups_file.readline()
+        while line_content:
+            line_content=line_content.replace("\n","")
+            if len(line_content)>0:
+                rmrb_corups.append(line_content)
+            line_content=rmrb_corups_file.readline()
+    return rmrb_corups
+
 
 def pipeline_train_val_data():
     # 生成训练数据集和验证数据集
     han_image_path_data=load_json_data(HAN_IMAGE_PATH)
-    wis=WordImgSet(han_image_path_data=han_image_path_data)
-    pipelinetrain(wis)
-    pipelineval(wis)
+    wis=WordImgSet(han_image_path_data=han_image_path_data,cropimage=False)
+    corups=load_corups()
+    pipelinetrain(wis,corups)
+    pipelineval(wis,corups)
 
-def pipelinetrain(wis:WordImgSet):
+def pipelinetrain(wis:WordImgSet,corups):
     #批量生成用于训练的语料。
     han_image_path_data=load_json_data(HAN_IMAGE_PATH)
-    multiple_num=5
+    multiple_num=2
     
     images_save_dir=f"{APP_DIR}/tmp/traindata/images"
     rec_gt_train_path=f"{APP_DIR}/tmp/traindata/rec_gt_train.txt"
     smart_make_dirs(images_save_dir)
     
-    corups=load_json_data(CORUPS_PATH)
+    #corups=load_json_data(CORUPS_PATH)
     random.shuffle(corups)
     rec_gt_train_file=open(rec_gt_train_path,"w")
     for index,corup in tqdm(enumerate(corups),desc="生成训练数据集"):
-        if len(corup)<5:
-            continue
         png_image_list=[]
         for small_index in range(multiple_num):
             grayimage,corup_text=wis.text2image(corup,random_mis_char=False)
@@ -125,21 +138,19 @@ def pipelinetrain(wis:WordImgSet):
                 "["+",".join(png_image_list)+"]"+"\t"+"".join(corup_text)+"\n"
             )
     rec_gt_train_file.close()
-def pipelineval(wis:WordImgSet):
+def pipelineval(wis:WordImgSet,corups):
     #批量生成用于验证数据。
-    han_image_path_data=load_json_data(HAN_IMAGE_PATH)
-    multiple_num=5
+    #han_image_path_data=load_json_data(HAN_IMAGE_PATH)
+    multiple_num=1
     
     images_save_dir=f"{APP_DIR}/tmp/valdata/images"
     rec_gt_train_path=f"{APP_DIR}/tmp/valdata/rec_gt_val.txt"
     smart_make_dirs(images_save_dir)
     #wis=WordImgSet(han_image_path_data=han_image_path_data)
-    corups=load_json_data(CORUPS_PATH)
+    #corups=load_json_data(CORUPS_PATH)
     random.shuffle(corups)
     rec_gt_train_file=open(rec_gt_train_path,"w")
-    for index,corup in tqdm(enumerate(corups),desc="生成验证数据集"):
-        if len(corup)<5:
-            continue
+    for index,corup in tqdm(enumerate(corups),desc="生成验证数据集")[:1500]:
         #png_image_list=[]
         for small_index in range(multiple_num):
             grayimage,corup_text=wis.text2image(corup,random_mis_char=True)
@@ -156,6 +167,7 @@ def pipelineval(wis:WordImgSet):
             # )
     rec_gt_train_file.close()
 if __name__=="__main__":
+    #load_corups()
     pipeline_train_val_data()
     # han_image_path_data=load_json_data(HAN_IMAGE_PATH)# 存放图片，汉字对应的图片
     # wis=WordImgSet(han_image_path_data=han_image_path_data)
