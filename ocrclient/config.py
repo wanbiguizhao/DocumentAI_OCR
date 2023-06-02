@@ -8,6 +8,7 @@ import json
 JSON_DATA_PATH="tmp/0ocrdata/"
 JSON_DATA_PATH="tmp/0ocrdata/data.json"
 HAN_IMAGE_PATH="ocrclient/tmp/han_image_path.json"
+FUHAO_IMAGE_PATH="ocrclient/tmp/fuhao_image_path.json"
 CORUPS_PATH="ocrclient/tmp/sentences.json"
 def dump_json_data(json_data,json_file_path):
     with open(json_file_path,"w") as ocr_data_file:

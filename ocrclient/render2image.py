@@ -6,7 +6,7 @@ from config import load_json_data,dump_json_data,HAN_IMAGE_PATH,CORUPS_PATH,APP_
 import cv2 as  cv
 import numpy as np
 from util import smart_make_dirs
-
+from PIL import Image
 
 class WordImgSet:
     """
@@ -20,7 +20,8 @@ class WordImgSet:
             for image_path in path_list:
                 img=cv.imread(image_path,cv.IMREAD_GRAYSCALE)# 灰度图
                 h,w=img.shape
-                if h>75:
+                if h>80:
+                    Image.open(image_path).show()
                     continue 
                 if cropimage==True:# 有的图片本身就已经crop过了。
                     images.append( self.cropImage(img) )
@@ -51,9 +52,9 @@ class WordImgSet:
     def text2image(self,text,random_mis_char=False):
         # 对于text中不存在的字符，是否随机替换一个字符
         ret_text=[]
-        guess_hd,guess_hu=75,0
+        guess_hd,guess_hu=90,0
         max_width=96*len(text)
-        sentence_img=np.zeros((75,max_width),dtype = np.uint8)
+        sentence_img=np.zeros((90,max_width),dtype = np.uint8)
         guess_max_h=0
         sentence_img[:,:]=255
         beg_w=0
@@ -66,7 +67,7 @@ class WordImgSet:
             wordimg=self.get_han_image(ch)
             h,w=wordimg.shape
             
-            h_mid=75//2
+            h_mid=90//2
             whd,whu= (h_mid-h//2),(h_mid+h-h//2)#计算汉字的上下界线
             guess_hu=max(guess_hu,whu)
             guess_hd=min(guess_hd,whd)
@@ -113,15 +114,13 @@ def pipeline_train_val_data():
     pipelinetrain(wis,corups)
     pipelineval(wis,corups)
 
-def pipelinetrain(wis:WordImgSet,corups):
+def pipelinetrain(wis:WordImgSet,corups,save_dir_prefix=""):
     #批量生成用于训练的语料。
     han_image_path_data=load_json_data(HAN_IMAGE_PATH)
-    multiple_num=2
-    
-    images_save_dir=f"{APP_DIR}/tmp/traindata/images"
-    rec_gt_train_path=f"{APP_DIR}/tmp/traindata/rec_gt_train.txt"
+    multiple_num=10
+    images_save_dir=f"{save_dir_prefix}/images"
+    rec_gt_train_path=f"{save_dir_prefix}/rec_gt_train.txt"
     smart_make_dirs(images_save_dir)
-    
     #corups=load_json_data(CORUPS_PATH)
     random.shuffle(corups)
     rec_gt_train_file=open(rec_gt_train_path,"w")
@@ -138,19 +137,19 @@ def pipelinetrain(wis:WordImgSet,corups):
                 "["+",".join(png_image_list)+"]"+"\t"+"".join(corup_text)+"\n"
             )
     rec_gt_train_file.close()
-def pipelineval(wis:WordImgSet,corups):
+def pipelineval(wis:WordImgSet,corups,save_dir_prefix=""):
     #批量生成用于验证数据。
     #han_image_path_data=load_json_data(HAN_IMAGE_PATH)
     multiple_num=1
     
-    images_save_dir=f"{APP_DIR}/tmp/valdata/images"
-    rec_gt_train_path=f"{APP_DIR}/tmp/valdata/rec_gt_val.txt"
+    images_save_dir=f"{save_dir_prefix}/images"
+    rec_gt_train_path=f"{save_dir_prefix}/rec_gt_val.txt"
     smart_make_dirs(images_save_dir)
     #wis=WordImgSet(han_image_path_data=han_image_path_data)
     #corups=load_json_data(CORUPS_PATH)
     random.shuffle(corups)
     rec_gt_train_file=open(rec_gt_train_path,"w")
-    for index,corup in tqdm(enumerate(corups),desc="生成验证数据集")[:1500]:
+    for index,corup in tqdm(enumerate(corups[:1500]),desc="生成验证数据集"):
         #png_image_list=[]
         for small_index in range(multiple_num):
             grayimage,corup_text=wis.text2image(corup,random_mis_char=True)
@@ -166,9 +165,35 @@ def pipelineval(wis:WordImgSet,corups):
             #     "["+",".join(png_image_list)+"]"+"\t"+"".join(corup_text)+"\n"
             # )
     rec_gt_train_file.close()
+
+def pipeline_all_han_and_fuhao():
+    #把所有的符号和符号集合中的所有的汉字进行组合。
+
+    han_image_path_data=load_json_data(HAN_IMAGE_PATH)
+    fuhao_image_path_data=load_json_data("ocrclient/tmp/fuhao_image_path.json")
+    fuhao_list=list(fuhao_image_path_data.keys())
+    han_image_path_data.update(fuhao_image_path_data)
+    word_and_fuhao_is=WordImgSet(han_image_path_data=han_image_path_data,cropimage=False)
+   
+    corups=[]
+    fuhao_index=0
+    for x in range(0,10):
+        random.shuffle(word_and_fuhao_is.han_list) # 把里面的字符随机打乱一下。
+        for i in range(0,len(word_and_fuhao_is.han_list),10):
+            corups.append("".join(word_and_fuhao_is.han_list[i:i+10])+fuhao_list[fuhao_index%len(fuhao_list)])
+            fuhao_index+=1
+    train_save_dir_prefix=f"{APP_DIR}/tmp/traindata_han_fuhao"
+    pipelinetrain(word_and_fuhao_is,corups,train_save_dir_prefix)
+    val_save_dir_prefix=f"{APP_DIR}/tmp/valdata_han_fuhao"
+    pipelineval(word_and_fuhao_is,corups,val_save_dir_prefix)
+
+    
+
+
 if __name__=="__main__":
     #load_corups()
-    pipeline_train_val_data()
+    #pipeline_train_val_data()
+    pipeline_all_han_and_fuhao()
     # han_image_path_data=load_json_data(HAN_IMAGE_PATH)# 存放图片，汉字对应的图片
     # wis=WordImgSet(han_image_path_data=han_image_path_data)
     # wis.text2image("加强互助合作生產及代耕工作中取得的經驗和存在的問題")
