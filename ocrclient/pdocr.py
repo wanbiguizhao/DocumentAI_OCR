@@ -15,9 +15,29 @@ paddleocr = PaddleOCR(
         use_gpu=True,
         show_log=False,
         rec_model_dir="ocrclient/tmp/Teacher",
-        rec_char_dict_path="pdpdocr/pp_unique.txt"
-        
+        rec_char_dict_path="pdpdocr/pp_unique.txt",
+        rec_image_shape="3,48,1200" 
     )
+paddleocr = PaddleOCR(
+        det=True,
+        rec=True,
+        lang="chinese_cht",
+        #lang="ch",
+        cls=True,
+        use_gpu=True,
+        show_log=False,
+        # rec_model_dir="ocrclient/tmp/Teacher",
+        # rec_char_dict_path="pdpdocr/pp_unique.txt",
+        # rec_image_shape="3,48,1200" 
+    )
+
+# pdocr 原來的模型              新模型：  2023-06-03
+#  尚未顏髮不材場管理辦法之地區 -> 尙未頒發木材巿場管理辦法之地區,
+#  市政府應肥根據本地區情況 -> 市政府應即根據本地區情况
+#  木材市場韻頜導機構。  -> 木材巿場的頜導機構
+# '裕一九五五年的農業增產創造有利條件 -> 給一九五五年的農業增產创造有利條件 
+#       查地北鎮捆                       ->  各地必須抓 
+#
 #os.environ.setdefault("REDIS_OM_URL","redis://:wwheqq@0.0.0.0:6379")
 from typing import Optional
 from pydantic import EmailStr
