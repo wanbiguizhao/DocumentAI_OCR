@@ -7,13 +7,15 @@ import json
 from paddleocr import PaddleOCR
 from config import load_json_data,dump_json_data
 paddleocr = PaddleOCR(
-        det=False,
+        det=True,
         rec=True,
         lang="chinese_cht",
         #lang="ch",
-        cls=False,
+        cls=True,
         use_gpu=True,
-        show_log=False
+        show_log=False,
+        rec_model_dir="ocrclient/tmp/Teacher",
+        rec_char_dict_path="pdpdocr/pp_unique.txt"
         
     )
 #os.environ.setdefault("REDIS_OM_URL","redis://:wwheqq@0.0.0.0:6379")
@@ -136,7 +138,11 @@ def ocr_infer_images():
         }
         with open(f"{basic_infer_dir}/{uuid_image_dir}/pocr.json","w") as jsonf:
             json.dump(ocr_data,jsonf,ensure_ascii=False,indent=2)
+def test_new_rec_model_ocr():
+    data=paddleocr.ocr("easyocr/tmp/ocr_data/1954-02_14/1954-02_14.png")
+    print(data)
 if __name__=="__main__":
-    os.environ.setdefault("REDIS_OM_URL","redis://:wwheqq@0.0.0.0:6379")
+    test_new_rec_model_ocr()
+    #os.environ.setdefault("REDIS_OM_URL","redis://:wwheqq@0.0.0.0:6379")
     #pipe_line01()
-    ocr_infer_images()
+    #ocr_infer_images()
