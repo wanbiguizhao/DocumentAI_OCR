@@ -21,7 +21,7 @@ paddleocr = PaddleOCR(
 paddleocr = PaddleOCR(
         det=True,
         rec=True,
-        lang="chinese_cht",
+        lang="ch",
         #lang="ch",
         cls=True,
         use_gpu=True,
@@ -159,7 +159,9 @@ def ocr_infer_images():
         with open(f"{basic_infer_dir}/{uuid_image_dir}/pocr.json","w") as jsonf:
             json.dump(ocr_data,jsonf,ensure_ascii=False,indent=2)
 def test_new_rec_model_ocr():
-    data=paddleocr.ocr("easyocr/tmp/ocr_data/1954-02_14/1954-02_14.png")
+    #data=paddleocr.ocr("easyocr/tmp/ocr_data/1954-02_14/1954-02_14.png")
+    data=paddleocr.ocr("tmp/nianbao/images/000001/0000010001-01.png")
+    #
     print(data)
 if __name__=="__main__":
     test_new_rec_model_ocr()

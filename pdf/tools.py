@@ -1,5 +1,6 @@
 
-import os 
+import os
+import tempfile 
 PROJECT_DIR= os.path.dirname(
     os.path.dirname(__file__)
 )
@@ -7,10 +8,20 @@ import sys
 sys.path.append(PROJECT_DIR)
 from pdf.tempfilepath import TemporaryFilePath
 from pdfminer.high_level import extract_text_to_fp
+from pdfminer.image import ImageWriter
 import re
 from tqdm import tqdm
 from tempfile import mktemp
+import shutil
 
+from pdf2image import convert_from_path, convert_from_bytes
+from pdf2image.exceptions import (
+    PDFInfoNotInstalledError,
+    PDFPageCountError,
+    PDFSyntaxError
+)
+def convert_images(input_file, output_dir,output_file_prefix=""):
+    images_from_path = convert_from_path(input_file, output_folder=output_dir,fmt='png',output_file=output_file_prefix)
 def extract_images(input_file, output_dir):
     #output_dir = mkdtemp()
     with TemporaryFilePath() as output_file_name:
@@ -22,12 +33,18 @@ def extract_images(input_file, output_dir):
                 print(image_files)
 
 def batch_convert(pdfdir,image_save_dir):
+    
     for pdfname in tqdm(os.listdir(pdfdir)):
         pdf_path=os.path.join(pdfdir,pdfname)
+        if "pdf" not in pdfname.lower():
+            continue
         image_dir=pdfname.split('.')[0]
-        image_path=os.path.join(image_save_dir,image_dir)
-        extract_images(pdf_path,image_path)
-        print(image_path)
+        image_path=os.path.join(image_save_dir,image_dir[:6])
+        if os.path.exists(image_path):
+            shutil.rmtree(image_path)
+        os.makedirs(image_path)
+        convert_images(pdf_path,image_path,image_dir[:6])
+        
 def batch_rename_img(base_image_dir):
     """
     把从PDF中提取的图片名称 I0.bmp-> 1954-01_00.bmp的形式
@@ -84,7 +101,7 @@ if __name__=="__main__":
     #     out_dir
     #     )
     base_image_dir=os.path.join(PROJECT_DIR,"tmp","images")
-    #batch_convert("~/ocr/DocumentAI_OCR/tmp/pdfs","~/ocr/DocumentAI_OCR/tmp/images")
+    batch_convert("tmp/nianbao","tmp/nianbao/images")
     #batch_rename_img( base_image_dir)
-    batch_convert_bmp_png(base_image_dir)
+    #batch_convert_bmp_png(base_image_dir)
     
