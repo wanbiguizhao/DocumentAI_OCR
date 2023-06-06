@@ -21,7 +21,10 @@ from pdf2image.exceptions import (
     PDFSyntaxError
 )
 def convert_images(input_file, output_dir,output_file_prefix=""):
-    images_from_path = convert_from_path(input_file, output_folder=output_dir,fmt='png',output_file=output_file_prefix)
+    try:
+        images_from_path = convert_from_path(input_file, output_folder=output_dir,fmt='png',output_file=output_file_prefix,thread_count=4)
+    except:
+        print(input_file,"error")
 def extract_images(input_file, output_dir):
     #output_dir = mkdtemp()
     with TemporaryFilePath() as output_file_name:
@@ -101,7 +104,7 @@ if __name__=="__main__":
     #     out_dir
     #     )
     base_image_dir=os.path.join(PROJECT_DIR,"tmp","images")
-    batch_convert("tmp/nianbao","tmp/nianbao/images")
+    batch_convert("/media/liukun/7764-4284/cninfo/CnInfoReports/pdfs/ndbg_zy","/media/liukun/7764-4284/cninfo/CnInfoReports/pdfs/ndbg_zy_images")
     #batch_rename_img( base_image_dir)
     #batch_convert_bmp_png(base_image_dir)
     
